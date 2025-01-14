@@ -1,0 +1,4 @@
+out/*.out
+out/pong
+
+pong/pong.cpp
