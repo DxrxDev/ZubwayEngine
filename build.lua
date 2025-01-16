@@ -73,11 +73,12 @@ end
 
 print "Starting build process..."
 
-game = CreateProject( "pong", "out", "c", platform.linux )
+game = CreateProject( "app", "out", "c", platform.linux )
 game.files = {
-	"pong/pong.cpp", "pong/window.cpp", "pong/graphics.cpp", "pong/raymath.cpp"
+	"App/pong.cpp", "ZubwayEngine/window.cpp", "ZubwayEngine/graphics.cpp", "ZubwayEngine/raymath.cpp", "ZubwayEngine/box2D.cpp"
 }
 game.includedirs = {
+	"ZubwayEngine"
 }
 game.libraries = {
 	"dl", "m", "xcb", "xcb-icccm", "xcb-keysyms", "vulkan"
