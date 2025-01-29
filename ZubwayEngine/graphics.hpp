@@ -151,6 +151,9 @@ private:
     Buffer *uBuffer;
     VkDescriptorSet descSet;
 };
+class TextureBuffer {
+    
+};
 
 class Command {
 public:
@@ -176,6 +179,7 @@ public:
     int32_t Draw( VertexBuffer& vb );
     int32_t DrawIndexed( VertexBuffer& vb, IndexBuffer& ib, std::vector<UniformBuffer1*> ubs );
     int32_t DrawIndexed2( VertexBuffer& vb, IndexBuffer& ib, UniformBuffer2& ub );
+    int32_t DrawIndexed3( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub );
 
     int32_t PrepareDraws( void );
     int32_t PresentDraws( void );

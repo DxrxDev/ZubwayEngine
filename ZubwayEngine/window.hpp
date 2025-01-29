@@ -27,13 +27,17 @@ struct WindowEvent {
         bool pressed;
     };
     struct MouseMove {
-        float  x,  y;
-        float dx, dy;
+        float x, y;
+        float rootx, rooty;
+    };
+    struct VisChange{
+        bool visable;
     };
     union {
         Key       key;
         MouseClk  mc;
         MouseMove mm;
+        VisChange vc;
     };
 };
 

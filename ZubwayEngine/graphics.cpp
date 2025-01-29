@@ -1254,7 +1254,59 @@ int32_t GraphicsWindow::DrawIndexed2( VertexBuffer& vb, IndexBuffer& ib, Uniform
 
     return 0;
 }
+int32_t GraphicsWindow::DrawIndexed3( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub ){
+    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
+    vkResetFences( device, 1, &fense_inFlight );
 
+    Command cmd( device, cmdpool );
+
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
+
+    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
+    ib.BindBuffer( cmd.GetCmd() );
+    ub.BindBuffer( cmd.GetCmd() );
+    
+    for (VertexBuffer *vb : vbs){
+        vb->BindBuffer( cmd.GetCmd() );
+        vkCmdDrawIndexed(cmd.GetCmd(), ib.GetIndCount(), 1, 0, 0, 0);
+    }
+
+    EndRenderPassCommand( cmd.GetCmd() );   
+
+    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
+    VkSubmitInfo submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = waitSemaphores,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = cmd.GetPtr(),
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signalSemaphores
+    };
+    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
+
+    VkSwapchainKHR swapchains[] = {swapchain};
+    VkPresentInfoKHR presentInfo = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = signalSemaphores,
+        .swapchainCount = 1,
+        .pSwapchains = swapchains,
+        .pImageIndices = &imageIndex,
+    };
+
+    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
+        Error() << "Couldn't Present image :/";
+    }
+
+    return 0;
+}
 
 bool CheckSuitabilityOfDevice( VkPhysicalDevice dev, VkSurfaceKHR sur, uint32_t *graphics, uint32_t *present ){
     uint32_t g, p;

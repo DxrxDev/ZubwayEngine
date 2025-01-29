@@ -157,9 +157,28 @@ public:
                         }
                     });
                 } break;
-
                 case XCB_BUTTON_PRESS:{
 
+                } break;
+                case XCB_BUTTON_RELEASE:{
+
+                } break;
+                case XCB_MOTION_NOTIFY:{
+                    xcb_motion_notify_event_t e = *(xcb_motion_notify_event_t*)event;
+                    if (e.event != xcb_window) break;
+                    WindowEvent ev{};
+                    ev.type = WindowEventType::MouseMove,
+                    ev.mm = (WindowEvent::MouseMove){
+                            .x = e.event_x,
+                            .y = e.event_y,
+                            .rootx = e.root_x,
+                            .rooty = e.root_y
+                    };
+                    
+                    ret.push_back( ev );
+                } break;
+                default: {
+                    std::cout << (event->response_type & ~0x80) << std::endl;
                 } break;
             }
         }
