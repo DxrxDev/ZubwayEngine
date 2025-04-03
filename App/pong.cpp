@@ -31,7 +31,6 @@ float millisecondsSinceLastFrame;
 #define MAX_TRANSFORMS 1024
 
 /*
-
 void AddTriangle( Vector3 points[3], uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds ){
     uint32_t offset = verts.size();
     for (uint32_t i = 0; i < 3; ++i){
@@ -62,110 +61,10 @@ void AddTriangleFancy( float x, float y, float angle1, float angle2, float side1
 }
 */
 
-void AddRectangle( Box2D rect, uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds ){
-    float hw = rect.w / 2.0f, hh = rect.h / 2.0f;
-    uint32_t offset = verts.size();
-    verts.push_back({{rect.x - hw, rect.y - hh}, {0.0, 0.0}, trs}); //TL
-    verts.push_back({{rect.x + hw, rect.y - hh}, {1.0, 0.0}, trs}); //TR
-    verts.push_back({{rect.x - hw, rect.y + hh}, {0.0, 1.0}, trs}); //BL
-    verts.push_back({{rect.x + hw, rect.y + hh}, {1.0, 1.0}, trs}); //BR
-
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 3 );
-    inds.push_back( offset + 2 );
-
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 1 );
-    inds.push_back( offset + 3 );
-}
-
-void AddRectangle2( Box2D rect, Box2D tex, uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds ){
-    float hw = rect.w / 2.0f, hh = rect.h / 2.0f;
-    uint32_t offset = verts.size();
-    verts.push_back({{rect.x - hw, rect.y - hh}, {tex.x, tex.y}, trs}); //TL
-    verts.push_back({{rect.x + hw, rect.y - hh}, {tex.x + tex.w, tex.y}, trs}); //TR
-    verts.push_back({{rect.x - hw, rect.y + hh}, {tex.x, tex.y + tex.h}, trs}); //BL
-    verts.push_back({{rect.x + hw, rect.y + hh}, {tex.x + tex.w, tex.y + tex.h}, trs}); //BR
-
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 3 );
-    inds.push_back( offset + 2 );
-
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 1 );
-    inds.push_back( offset + 3 );
-}
-
-/**
- * @brief 
- * 
- * @param rect 
- * @param tex 
- * @param texRot 
- * @param trs 
- * @param verts 
- * @param inds 
- */
-void AddRectangle3( Box2D rect, Box2D tex, uint32_t texRot, uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds ){
-    float hw = rect.w / 2.0f, hh = rect.h / 2.0f;
-    uint32_t offset = verts.size();
-
-    Vector2 texcorners[4] = {
-        {tex.x, tex.y},
-        {tex.x + tex.w, tex.y},
-        {tex.x, tex.y + tex.h},
-        {tex.x + tex.w, tex.y + tex.h}
-    };
-
-    uint64_t texrot[4];
-    switch (texRot % 4){
-        default: // FLOWING TO NEXT
-        case 0: {
-            texrot[0] = 0;
-            texrot[1] = 1;
-            texrot[2] = 2;
-            texrot[3] = 3;
-        } break;
-        case 1: {
-            texrot[0] = 2;
-            texrot[1] = 0;
-            texrot[2] = 3;
-            texrot[3] = 1;
-        } break;
-        case 2: {
-            texrot[0] = 3;
-            texrot[1] = 2;
-            texrot[2] = 1;
-            texrot[3] = 0;
-        } break;
-        case 3: {
-            texrot[0] = 1;
-            texrot[1] = 3;
-            texrot[2] = 0;
-            texrot[3] = 2;
-        } break;
-    }
-
-
-    verts.push_back({{rect.x - hw, rect.y - hh}, texcorners[texrot[0]], trs}); //TL
-    verts.push_back({{rect.x + hw, rect.y - hh}, texcorners[texrot[1]], trs}); //TR
-    verts.push_back({{rect.x - hw, rect.y + hh}, texcorners[texrot[2]], trs}); //BL
-    verts.push_back({{rect.x + hw, rect.y + hh}, texcorners[texrot[3]], trs}); //BR
-
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 3 );
-    inds.push_back( offset + 2 );
-
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 1 );
-    inds.push_back( offset + 3 );
-}
-
 namespace ZE {
-    namespace visual {
+    namespace Visual {
         /**
-         * @brief 
-         * Add a Quad to your draw queue
+         * @brief Add a Quad to your draw queue
          * @param rect 
          * @param texture 
          * @param texRot 
@@ -179,6 +78,9 @@ namespace ZE {
             uint32_t texRot, uint32_t transformID,
             std::vector<Vertex>& verts, std::vector<uint16_t>& inds
         ){
+            if (transformID >= MAX_TRANSFORMS)
+                return "ZE::Visual::AddQuad(): transformID out of bounds!";
+
             float hw = rect.w / 2.0f, hh = rect.h / 2.0f;
             uint32_t offset = verts.size();
         
@@ -234,6 +136,75 @@ namespace ZE {
             inds.push_back( offset + 3 );
 
             return nullptr;
+        };
+
+        /**
+         * @brief Add a triangle to your draw queue
+         * @param points 
+         * @param texture 
+         * @param trs 
+         * @param verts 
+         * @param inds 
+         */
+        void AddTriangle(
+            Vector3 points[3], Vector2 texture[3],
+            uint32_t trs,
+            std::vector<Vertex>& verts, std::vector<uint16_t>& inds
+        ){
+            uint32_t offset = verts.size();
+            for (uint32_t i = 0; i < 3; ++i){
+                verts.push_back({ points[i], texture[i], trs });
+            }
+            inds.push_back( offset + 0 );
+            inds.push_back( offset + 1 );
+            inds.push_back( offset + 2 );
+        }
+    };
+    namespace Camera {
+        class Camera{
+        protected:
+            Camera(){
+                pos = (Vector3){0, 0, 0};
+            }
+
+            virtual Matrix GetMatrix() = 0;
+
+            Vector3 pos;
+        };
+        class ProjectionCamera: public Camera{
+        public:
+            ProjectionCamera(float fov, float aspect){
+                this->fov = fov;
+                this->aspect = aspect;
+            }
+
+            virtual Matrix GetMatrix(){
+                return MatrixPerspective(
+                    fov, aspect,
+                    0.1, 5000.0
+                );
+            }
+
+        private:
+            float fov, aspect;
+        };
+        class OrthroCamera: public Camera{
+        public:
+            OrthroCamera(Vector2 screenSize){
+                this->screenSize = screenSize;
+            }
+
+            virtual Matrix GetMatrix(){
+                return MatrixOrtho(
+                    screenSize.x * -0.5,
+                    screenSize.x * 0.5,
+                    screenSize.y * -0.5,
+                    screenSize.y * 0.5,
+                    0.1, 5000.0
+                );
+            }
+        private:
+            Vector2 screenSize;
         };
     };
 };
@@ -303,6 +274,7 @@ int main( void ){
     std::vector<uint16_t> inds;
 
     /* Generate background 
+
     Grid bgGrid( FEILD_WIDTH, FEILD_HEIGHT, 1.0f );
     for (uint32_t y = 0; y < FEILD_HEIGHT; ++y){
         for (uint32_t x = 0; x < FEILD_WIDTH; ++x){
@@ -315,7 +287,7 @@ int main( void ){
     }
     */
 
-    ZE::visual::AddQuad(
+    ZE::Visual::AddQuad(
         (Box2D){0, 0, 5, 5},
         (Box2D){0, 0, 1, 1},
         0, 0,
@@ -325,19 +297,26 @@ int main( void ){
 	VertexBuffer vb( &wnd, verts, 0 );
     IndexBuffer ib( &wnd, inds.data(), inds.size(), 0 );
 
-    std::cout << "balls shit fuck: " << verts.size();
-
     Matrix view = MatrixLookAt(
         {0, 0, 1},
         {0, 0, 0 },
         {0, 1, 0}
     );
-    Matrix proj = MatrixOrtho(SCREEN_LEFT, SCREEN_RIGHT, SCREEN_TOP, SCREEN_BOTTOM, 0.1, 10.0);
     
+    /*
+    ZE::Camera::ProjectionCamera cam(
+        PI / 3.0,
+        SCREEN_WIDTH / SCREEN_HEIGHT
+    );
+    */
+    ZE::Camera::OrthroCamera cam(
+        (Vector2){SCREEN_WIDTH, SCREEN_HEIGHT}
+    );
+
     std::vector<MVP> mvps = {
         {
             MatrixTranslate(0, 0, 0),
-            view, proj
+            view, cam.GetMatrix()
         }
     };
     UniformBuffer2 ub1( &wnd, 1 );
@@ -352,6 +331,9 @@ int main( void ){
     millisecondsSinceLastFrame = 0;
 
     std::cout << "Entering main loop !!!" << std::endl;
+
+    Vector3 CamPos;
+
 
     while (running){ t1 = std::chrono::high_resolution_clock::now();
         std::vector<WindowEvent> events = wnd.GetEvents();

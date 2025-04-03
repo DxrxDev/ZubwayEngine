@@ -1,14 +1,14 @@
--- x, bob = pcall(require, "bob")
+#! /usr/bin/lua
 
---[[
-for k,v in pairs(arg) do
-	print( "key "..k..", value "..v )
+buildTargets = {}
+
+if #arg == 0 then
+	buildTargets[1] = "all"
 end
 
-if arg[1] == "--help" then
-	print "yeah"	
+for i = 1, #arg do
+	print(arg[i])
 end
-]]
 
 platform = {
 	invalid = -1,
