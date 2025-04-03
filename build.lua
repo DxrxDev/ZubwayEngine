@@ -75,7 +75,11 @@ print "Starting build process..."
 
 game = CreateProject( "app", "out", "c", platform.linux )
 game.files = {
-	"App/pong.cpp", "ZubwayEngine/window.cpp", "ZubwayEngine/graphics.cpp", "ZubwayEngine/raymath.cpp", "ZubwayEngine/box2D.cpp"
+	"App/pong.cpp",
+	"ZubwayEngine/window.cpp", "ZubwayEngine/graphics.cpp", 
+	"ZubwayEngine/box2D.cpp",
+	"ZubwayEngine/raymath.cpp",
+	"ZubwayEngine/cute_png.cpp"
 }
 game.includedirs = {
 	"ZubwayEngine"

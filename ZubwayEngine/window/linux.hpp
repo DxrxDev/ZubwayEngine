@@ -169,16 +169,16 @@ public:
                     WindowEvent ev{};
                     ev.type = WindowEventType::MouseMove,
                     ev.mm = (WindowEvent::MouseMove){
-                            .x = e.event_x,
-                            .y = e.event_y,
-                            .rootx = e.root_x,
-                            .rooty = e.root_y
+                            .x = (float)e.event_x,
+                            .y = (float)e.event_y,
+                            .rootx = (float)e.root_x,
+                            .rooty = (float)e.root_y
                     };
                     
                     ret.push_back( ev );
                 } break;
                 default: {
-                    std::cout << (event->response_type & ~0x80) << std::endl;
+                    std::cout << "Unhandled Window Event: " << (event->response_type & ~0x80) << std::endl;
                 } break;
             }
         }

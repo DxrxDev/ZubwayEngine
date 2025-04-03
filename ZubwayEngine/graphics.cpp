@@ -7,7 +7,7 @@
 #include <limits>
 #include <fstream>
 #include <cstring>
-
+#include <cmath>
 
 #if defined( __linux__ )
     #include <xcb/xcb.h>
@@ -112,7 +112,7 @@ uint32_t Buffer::findMemoryType( VkPhysicalDevice pd, uint32_t filter, VkMemoryP
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(pd, &memProperties);
 
-    for (int32_t i = 0; i < memProperties.memoryTypeCount; ++i){
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i){
         if ((filter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
             return i;
         }
@@ -122,13 +122,33 @@ uint32_t Buffer::findMemoryType( VkPhysicalDevice pd, uint32_t filter, VkMemoryP
     return 0;
 }
 
-VertexBuffer::VertexBuffer( GraphicsWindow *wnd, std::vector<Vertex>& verts ){
+VertexBuffer::VertexBuffer( GraphicsWindow *wnd, std::vector<Vertex>& verts, uint32_t reserved ){
     window = wnd;
     verticies = verts;
+    numreserved = std::max<uint64_t>(verticies.size(), (uint64_t)reserved);
 
-    Buffer vertStageBuffer(
+    vertBuffer = new Buffer(
         wnd->GetDevice(), wnd->GetPhysicalDevice(),
-        sizeof(verticies[0]) * verticies.size(),
+        sizeof(verticies[0]) * numreserved,
+        (
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT
+        ),
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    UpdateMemory(verts.data(), verts.size(), 0);
+}
+VertexBuffer::~VertexBuffer( ){
+    delete vertBuffer;
+}
+const char *VertexBuffer::UpdateMemory( Vertex *verts, size_t numverts, size_t offset ){
+    if ((numverts + offset) > numreserved)
+        return "Trying to write out of bounds!\n";
+    
+    Buffer vertStageBuffer(
+        window->GetDevice(), window->GetPhysicalDevice(),
+        sizeof(Vertex) * numverts,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         (
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -138,48 +158,24 @@ VertexBuffer::VertexBuffer( GraphicsWindow *wnd, std::vector<Vertex>& verts ){
 
     void* mappeddata;
     vkMapMemory(window->GetDevice(), vertStageBuffer.GetMemory(), 0, vertStageBuffer.GetSizeOnGPU(), 0, &mappeddata);
-    memcpy(mappeddata, verticies.data(), vertStageBuffer.GetSizeOnGPU());
+    memcpy(mappeddata, verts, vertStageBuffer.GetSizeOnGPU());
     vkUnmapMemory(window->GetDevice(), vertStageBuffer.GetMemory());
 
-    vertBuffer = new Buffer(
-        wnd->GetDevice(), wnd->GetPhysicalDevice(),
-        sizeof(verticies[0]) * verticies.size(),
-        (
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT
-        ),
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-    );
-
-    VkCommandBuffer command;
-    VkCommandBufferAllocateInfo cbAI = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .pNext = nullptr,
-        .commandPool = wnd->GetCommandPool(),
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
-    };
-    vkAllocateCommandBuffers(window->GetDevice(), &cbAI, &command);
-
-    VkCommandBufferBeginInfo cbbi = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .pNext = 0,
-        .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-        .pInheritanceInfo = nullptr
-    };
-    vkBeginCommandBuffer(command, &cbbi);
+    Command cmd(window->GetDevice(), window->GetCommandPool() );
+    cmd.Begin();
 
     VkBufferCopy cbcp = {
-        0, 0,
+        0, sizeof(Vertex) * offset,
         vertStageBuffer.GetSizeOnCPU(),
     };
     vkCmdCopyBuffer(
-        command, 
+        cmd.GetCmd(), 
         vertStageBuffer.GetBuffer(), vertBuffer->GetBuffer(),
         1, &cbcp
     );
 
-    vkEndCommandBuffer(command);
+
+    vkEndCommandBuffer(cmd.GetCmd());
 
     VkSubmitInfo submit = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -188,16 +184,15 @@ VertexBuffer::VertexBuffer( GraphicsWindow *wnd, std::vector<Vertex>& verts ){
         .pWaitSemaphores = nullptr,
         .pWaitDstStageMask = nullptr,
         .commandBufferCount = 1,
-        .pCommandBuffers = &command,
+        .pCommandBuffers = cmd.GetPtr(),
         .signalSemaphoreCount = 0,
         .pSignalSemaphores = nullptr
     };
 
     vkQueueSubmit(window->GetGraphicsQueue(), 1, &submit, VK_NULL_HANDLE);
     vkQueueWaitIdle(window->GetGraphicsQueue());
-}
-VertexBuffer::~VertexBuffer( ){
-    delete vertBuffer;
+
+    return nullptr;
 }
 int32_t VertexBuffer::BindBuffer( VkCommandBuffer cmd ){
     VkBuffer buffers[] = {vertBuffer->GetBuffer()};
@@ -213,15 +208,35 @@ uint32_t VertexBuffer::GetSizeofData( void ){
     return sizeof(verticies[0]) * verticies.size();
 }
 
-IndexBuffer::IndexBuffer( GraphicsWindow *wnd, uint16_t *data, size_t numI ) {
+IndexBuffer::IndexBuffer( GraphicsWindow *wnd, uint16_t *data, size_t numI, size_t reserved ) {
     window = wnd;
-    dind = (uint16_t *)malloc( sizeof(uint16_t) * numI );
-    nind = numI;
-    memcpy(dind, data, sizeof(uint16_t) * numI);
+    this->reserved = (numI + reserved);
+
+    iBuffer = new Buffer(
+        wnd->GetDevice(), wnd->GetPhysicalDevice(),
+        sizeof(uint16_t) * this->reserved,
+        (
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT
+        ),
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    numInds = numI;
+    UpdateMemory( data, numI, 0 );
+}
+IndexBuffer::~IndexBuffer(){
+}
+const char *IndexBuffer::UpdateMemory( uint16_t *inds, size_t numinds, size_t offset ){
+    if ((numinds + offset) > reserved)
+        return "Trying to write out of bounds!\n";
+    else if ((numinds + offset) > numInds){
+        numInds = (numinds + offset);
+    }
 
     Buffer indStageBuffer(
-        wnd->GetDevice(), wnd->GetPhysicalDevice(),
-        sizeof(dind[0]) * nind,
+        window->GetDevice(), window->GetPhysicalDevice(),
+        sizeof(uint16_t) * numinds,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         (
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -231,48 +246,23 @@ IndexBuffer::IndexBuffer( GraphicsWindow *wnd, uint16_t *data, size_t numI ) {
 
     void* mappeddata;
     vkMapMemory(window->GetDevice(), indStageBuffer.GetMemory(), 0, indStageBuffer.GetSizeOnGPU(), 0, &mappeddata);
-    memcpy(mappeddata, dind, indStageBuffer.GetSizeOnGPU());
+    memcpy(mappeddata, inds, indStageBuffer.GetSizeOnGPU());
     vkUnmapMemory(window->GetDevice(), indStageBuffer.GetMemory());
 
-    iBuffer = new Buffer(
-        wnd->GetDevice(), wnd->GetPhysicalDevice(),
-        sizeof(dind[0]) * nind,
-        (
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT
-        ),
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-    );
-
-    VkCommandBuffer command;
-    VkCommandBufferAllocateInfo cbAI = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .pNext = nullptr,
-        .commandPool = wnd->GetCommandPool(),
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
-    };
-    vkAllocateCommandBuffers(window->GetDevice(), &cbAI, &command);
-
-    VkCommandBufferBeginInfo cbbi = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .pNext = 0,
-        .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-        .pInheritanceInfo = nullptr
-    };
-    vkBeginCommandBuffer(command, &cbbi);
+    Command cmd(window->GetDevice(), window->GetCommandPool());
+    cmd.Begin();
 
     VkBufferCopy cbcp = {
-        0, 0,
+        0, sizeof(uint16_t) * offset,
         indStageBuffer.GetSizeOnCPU(),
     };
     vkCmdCopyBuffer(
-        command, 
+        cmd.GetCmd(), 
         indStageBuffer.GetBuffer(), iBuffer->GetBuffer(),
         1, &cbcp
     );
 
-    vkEndCommandBuffer(command);
+    vkEndCommandBuffer(cmd.GetCmd());
 
     VkSubmitInfo submit = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -281,23 +271,22 @@ IndexBuffer::IndexBuffer( GraphicsWindow *wnd, uint16_t *data, size_t numI ) {
         .pWaitSemaphores = nullptr,
         .pWaitDstStageMask = nullptr,
         .commandBufferCount = 1,
-        .pCommandBuffers = &command,
+        .pCommandBuffers = cmd.GetPtr(),
         .signalSemaphoreCount = 0,
         .pSignalSemaphores = nullptr
     };
 
     vkQueueSubmit(window->GetGraphicsQueue(), 1, &submit, VK_NULL_HANDLE);
     vkQueueWaitIdle(window->GetGraphicsQueue());
-}
-IndexBuffer::~IndexBuffer(){
-    free( dind );
+
+    return nullptr;
 }
 int32_t IndexBuffer::BindBuffer( VkCommandBuffer cmd ){
     vkCmdBindIndexBuffer(cmd, iBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT16);
     return 0;
 }
 uint32_t IndexBuffer::GetIndCount( void ){
-    return nind;
+    return numInds;
 }
 
 
@@ -409,7 +398,7 @@ UniformBuffer2::UniformBuffer2( GraphicsWindow *wnd, uint32_t capacity ){
     };
 
     if (vkAllocateDescriptorSets(window->GetDevice(), &sdAI, &descSet) != VK_SUCCESS) {
-        Error() << "Couldn't allocate descriptor sets!";
+        Error() << "Couldn't allocate descriptor sets! (1)";
     }
 
     VkDescriptorBufferInfo bufferInfo = {
@@ -465,6 +454,7 @@ void UniformBuffer2::UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset ){
 void UniformBuffer2::UploadMVP( void ){
 }
 
+//TextureBuffer::TextureBuffer( GraphicsSystemInfo )
 
 Command::Command( VkDevice device, VkCommandPool cmdpool ){
     this->device = device;
@@ -481,6 +471,13 @@ Command::Command( VkDevice device, VkCommandPool cmdpool ){
 Command::~Command(){
     vkDeviceWaitIdle( device );
     vkFreeCommandBuffers( device, cmdpool, 1, &cmd );
+}
+void Command::Begin(){
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(cmd, &beginInfo);
 }
 VkCommandBuffer Command::GetCmd( void ){
     return cmd;
@@ -551,7 +548,7 @@ GraphicsWindow::GraphicsWindow( uint32_t width, uint32_t height, const char *tit
 
     VkDeviceCreateInfo deviceCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = deviceQueueCreateInfos.size(),
+        .queueCreateInfoCount = (uint32_t)deviceQueueCreateInfos.size(),
         .pQueueCreateInfos = deviceQueueCreateInfos.data(),
         .enabledExtensionCount = 1,
         .ppEnabledExtensionNames = (const char*[]){ VK_KHR_SWAPCHAIN_EXTENSION_NAME }
@@ -692,7 +689,7 @@ int32_t GraphicsWindow::CreateSwapchain( ){
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .imageSharingMode = vk_sharingMode,
-        .queueFamilyIndexCount = queueFamiliesUsed.size(),
+        .queueFamilyIndexCount = (uint32_t)queueFamiliesUsed.size(),
         .pQueueFamilyIndices = queueFamiliesUsed.data(),
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
@@ -809,35 +806,60 @@ int32_t GraphicsWindow::CreateRenderPassAndFrameBuffers(){
     return 0;
 }
 int32_t GraphicsWindow::CreateUniformDescriptors( void ){
-    VkDescriptorSetLayoutBinding dslb = {
+    VkDescriptorSetLayoutBinding dslbUB = {
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
         .pImmutableSamplers = nullptr
     };
-    VkDescriptorSetLayoutCreateInfo ulCI = {
+    VkDescriptorSetLayoutCreateInfo ulciUB = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .bindingCount = 1,
-        .pBindings = &dslb
+        .pBindings = &dslbUB
     };
-    if (vkCreateDescriptorSetLayout(device, &ulCI, nullptr, &uniformLayout) != VK_SUCCESS){
-        Error() << "Couldn't create descriptor set layout!";
+
+    VkDescriptorSetLayoutBinding dslbS = {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+    VkDescriptorSetLayoutCreateInfo ulciS = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .bindingCount = 1,
+        .pBindings = &dslbS
+    };
+    if (vkCreateDescriptorSetLayout(device, &ulciUB, nullptr, &uniformLayout) != VK_SUCCESS){
+        Error() << "Couldn't create descriptor set layout! (1)";
+    }
+    if (vkCreateDescriptorSetLayout(device, &ulciS, nullptr, &textureLayout) != VK_SUCCESS){
+        Error() << "Couldn't create descriptor set layout! (2)";
     }
 
-    VkDescriptorPoolSize poolsize = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1
+
+    VkDescriptorPoolSize poolsizes[] = {
+        {
+            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1
+        }
     };
     VkDescriptorPoolCreateInfo poolCI = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .maxSets = 1,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolsize,
+        .maxSets = 2,
+        .poolSizeCount = 2,
+        .pPoolSizes = poolsizes,
     };
     if (vkCreateDescriptorPool(device, &poolCI, nullptr, &uniformPool) != VK_SUCCESS){
         Error() << "Couldn't create descriptor pool!";
@@ -914,9 +936,9 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .vertexBindingDescriptionCount = bindingDesc.size(),
+        .vertexBindingDescriptionCount = (uint32_t)bindingDesc.size(),
         .pVertexBindingDescriptions = bindingDesc.data(), 
-        .vertexAttributeDescriptionCount = attributeDesc.size(),
+        .vertexAttributeDescriptionCount = (uint32_t)attributeDesc.size(),
         .pVertexAttributeDescriptions = attributeDesc.data()
     };
 
@@ -1002,13 +1024,15 @@ int32_t GraphicsWindow::CreatePipeline( void ){
     };
 
     
-    
+    VkDescriptorSetLayout layouts[] = {
+        uniformLayout, textureLayout
+    };
     VkPipelineLayoutCreateInfo plci = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .setLayoutCount = 1,
-        .pSetLayouts = &uniformLayout,
+        .setLayoutCount = 2,
+        .pSetLayouts = layouts,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = nullptr
     };
@@ -1307,6 +1331,114 @@ int32_t GraphicsWindow::DrawIndexed3( std::vector<VertexBuffer*>& vbs, IndexBuff
 
     return 0;
 }
+int32_t GraphicsWindow::DrawIndexed4( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub, VulkanImage& vi ){
+    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
+    vkResetFences( device, 1, &fense_inFlight );
+
+    Command cmd( device, cmdpool );
+
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
+
+    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
+    ib.BindBuffer( cmd.GetCmd() );
+    ub.BindBuffer( cmd.GetCmd() );
+    vi.Bind( cmd.GetCmd() );
+    
+    for (VertexBuffer *vb : vbs){
+        vb->BindBuffer( cmd.GetCmd() );
+        vkCmdDrawIndexed(cmd.GetCmd(), ib.GetIndCount(), 1, 0, 0, 0);
+    }
+
+    EndRenderPassCommand( cmd.GetCmd() );   
+
+    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
+    VkSubmitInfo submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = waitSemaphores,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = cmd.GetPtr(),
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signalSemaphores
+    };
+    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
+
+    VkSwapchainKHR swapchains[] = {swapchain};
+    VkPresentInfoKHR presentInfo = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = signalSemaphores,
+        .swapchainCount = 1,
+        .pSwapchains = swapchains,
+        .pImageIndices = &imageIndex,
+    };
+
+    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
+        Error() << "Couldn't Present image :/";
+    }
+
+    return 0;
+}
+int32_t GraphicsWindow::DrawIndexed5( std::vector<std::pair<VertexBuffer*, IndexBuffer*>> vibuffs, UniformBuffer2& ub, VulkanImage& vi ){
+    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
+    vkResetFences( device, 1, &fense_inFlight );
+
+    Command cmd( device, cmdpool );
+
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
+
+    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
+    ub.BindBuffer( cmd.GetCmd() );
+    vi.Bind( cmd.GetCmd() );
+    
+    for (auto vi : vibuffs){
+        std::get<0>(vi)->BindBuffer( cmd.GetCmd() );
+        std::get<1>(vi)->BindBuffer( cmd.GetCmd() );
+        vkCmdDrawIndexed(cmd.GetCmd(), std::get<1>(vi)->GetIndCount(), 1, 0, 0, 0);
+    }
+
+    EndRenderPassCommand( cmd.GetCmd() );   
+
+    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
+    VkSubmitInfo submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = waitSemaphores,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = cmd.GetPtr(),
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signalSemaphores
+    };
+    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
+
+    VkSwapchainKHR swapchains[] = {swapchain};
+    VkPresentInfoKHR presentInfo = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = signalSemaphores,
+        .swapchainCount = 1,
+        .pSwapchains = swapchains,
+        .pImageIndices = &imageIndex,
+    };
+
+    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
+        Error() << "Couldn't Present image :/";
+    }
+
+    return 0;
+}
 
 bool CheckSuitabilityOfDevice( VkPhysicalDevice dev, VkSurfaceKHR sur, uint32_t *graphics, uint32_t *present ){
     uint32_t g, p;
@@ -1341,6 +1473,10 @@ bool CheckSuitabilityOfDevice( VkPhysicalDevice dev, VkSurfaceKHR sur, uint32_t 
                 p = i;
                     std::cout << "found prs at " << i << std::endl;
             }
+        }
+
+        if (graphicsFound && presentFound){
+            break;
         }
     }
     if (!graphicsFound){
