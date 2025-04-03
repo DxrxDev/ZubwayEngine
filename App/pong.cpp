@@ -161,6 +161,84 @@ void AddRectangle3( Box2D rect, Box2D tex, uint32_t texRot, uint32_t trs, std::v
     inds.push_back( offset + 3 );
 }
 
+namespace ZE {
+    namespace visual {
+        /**
+         * @brief 
+         * Add a Quad to your draw queue
+         * @param rect 
+         * @param texture 
+         * @param texRot 
+         * @param transformID 
+         * @param verts 
+         * @param inds 
+         * @return const char* 
+         */
+        const char *AddQuad(
+            Box2D rect, Box2D texture,
+            uint32_t texRot, uint32_t transformID,
+            std::vector<Vertex>& verts, std::vector<uint16_t>& inds
+        ){
+            float hw = rect.w / 2.0f, hh = rect.h / 2.0f;
+            uint32_t offset = verts.size();
+        
+            Vector2 texcorners[4] = {
+                {texture.x, texture.y},
+                {texture.x + texture.w, texture.y},
+                {texture.x, texture.y + texture.h},
+                {texture.x + texture.w, texture.y + texture.h}
+            };
+
+            uint64_t texrot[4];
+            switch (texRot % 4){
+                default: // FLOWING TO NEXT
+                case 0: {
+                    texrot[0] = 0;
+                    texrot[1] = 1;
+                    texrot[2] = 2;
+                    texrot[3] = 3;
+                } break;
+                case 1: {
+                    texrot[0] = 2;
+                    texrot[1] = 0;
+                    texrot[2] = 3;
+                    texrot[3] = 1;
+                } break;
+                case 2: {
+                    texrot[0] = 3;
+                    texrot[1] = 2;
+                    texrot[2] = 1;
+                    texrot[3] = 0;
+                } break;
+                case 3: {
+                    texrot[0] = 1;
+                    texrot[1] = 3;
+                    texrot[2] = 0;
+                    texrot[3] = 2;
+                } break;
+            }
+        
+        
+            verts.push_back({{rect.x - hw, rect.y - hh}, texcorners[texrot[0]], transformID}); //TL
+            verts.push_back({{rect.x + hw, rect.y - hh}, texcorners[texrot[1]], transformID}); //TR
+            verts.push_back({{rect.x - hw, rect.y + hh}, texcorners[texrot[2]], transformID}); //BL
+            verts.push_back({{rect.x + hw, rect.y + hh}, texcorners[texrot[3]], transformID}); //BR
+
+
+            inds.push_back( offset + 0 );
+            inds.push_back( offset + 3 );
+            inds.push_back( offset + 2 );
+
+            inds.push_back( offset + 0 );
+            inds.push_back( offset + 1 );
+            inds.push_back( offset + 3 );
+
+            return nullptr;
+        };
+    };
+};
+
+
 Image cptoimg(cp_image_t i){
     return (Image){
         (Image::Pixel *)i.pix,
@@ -224,11 +302,6 @@ int main( void ){
 	std::vector<Vertex> verts;
     std::vector<uint16_t> inds;
 
-    uint8_t constexpr /* CONSTANTS */
-        FEILD_WIDTH  = 25,
-        FEILD_HEIGHT = 25
-    ;
-
     /* Generate background 
     Grid bgGrid( FEILD_WIDTH, FEILD_HEIGHT, 1.0f );
     for (uint32_t y = 0; y < FEILD_HEIGHT; ++y){
@@ -241,7 +314,8 @@ int main( void ){
         }
     }
     */
-    AddRectangle3(
+
+    ZE::visual::AddQuad(
         (Box2D){0, 0, 5, 5},
         (Box2D){0, 0, 1, 1},
         0, 0,
