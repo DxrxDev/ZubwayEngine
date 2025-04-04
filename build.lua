@@ -200,6 +200,17 @@ game.libraries = {
 }
 game.warngings = warngings.all
 
-RunProject(wingfx)
-RunProject(app)
-RunProject(game)
+vertshader = CreateProject( "vert", "out", "shader" )
+vertshader.files = {
+	"ZubwayEngine/basic.vert"
+}
+fragshader = CreateProject( "frag", "out", "shader" )
+fragshader.files = {
+	"ZubwayEngine/basic.frag"
+}
+
+RunProject( wingfx )
+RunProject( app )
+RunProject( game )
+RunProject( vertshader )
+RunProject( fragshader )

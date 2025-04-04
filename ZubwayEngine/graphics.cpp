@@ -869,7 +869,7 @@ int32_t GraphicsWindow::CreateUniformDescriptors( void ){
 int32_t GraphicsWindow::CreatePipeline( void ){
     std::vector<char> shaderSources[2];
     {
-        std::ifstream vfile( "vert.out", std::ios::ate | std::ios::binary );
+        std::ifstream vfile( "vert.spirv", std::ios::ate | std::ios::binary );
         if (!vfile.is_open())
             Error() << "Couldnt open vertex shader !!";
         shaderSources[0] = std::vector<char>(vfile.tellg());
@@ -877,7 +877,7 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         vfile.read(shaderSources[0].data(), shaderSources[0].size());
         vfile.close();
 
-        std::ifstream ffile( "frag.out", std::ios::ate | std::ios::binary );
+        std::ifstream ffile( "frag.spirv", std::ios::ate | std::ios::binary );
         if (!ffile.is_open())
             Error() << "Couldnt open fragment shader !!";
         shaderSources[1] = std::vector<char>(ffile.tellg());

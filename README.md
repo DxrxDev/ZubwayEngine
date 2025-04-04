@@ -21,13 +21,13 @@ USAGE:
   build.lua <all|wingfx|app|shaders>
 ```
 
-
 # Dependancies
 
 ### General
 - Vulkan 1.0
   - debug layer
 - Lua 5.4
+- glslc
 
 ### Operating system
 - linux
