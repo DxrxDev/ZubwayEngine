@@ -15,9 +15,10 @@ Engine source files
 ### Lua build system
 Something new im trying out, CBA with CMake and Premake so im making
 Dobuild as a side side project.
-```sh
+```
+# on linux
 USAGE:
-  lua build.lua
+  build.lua <all|wingfx|app|shaders>
 ```
 
 
