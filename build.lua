@@ -1,15 +1,5 @@
 #! /usr/bin/lua
 
-buildTargets = {}
-
-if #arg == 0 then
-	buildTargets[1] = "all"
-end
-
-for i = 1, #arg do
-	buildTargets[i] = arg[i]
-end
-
 platform = {
 	invalid = -1,
 	linux = 0,
@@ -176,6 +166,8 @@ app.includedirs = {
 }
 app.warngings = warngings.all
 
+
+
 game = CreateProject( "StonesToBridges", "out", "app" )
 game.files = {
 	"out/int/App/pong.cpp.o"
@@ -185,14 +177,6 @@ listofobjs = getobjs(wingfx)
 offset = #game.files
 for i = 1, #listofobjs do
 	game.files[i+offset] = listofobjs[i]
-end
-
-for i = 1, #game.files do
-	if game.files[i] == nil then
-		print("OBJ FILE: NIL")
-	else
-		print("OBJ FILE: " .. game.files[i])
-	end
 end
 
 game.libraries = {
@@ -209,8 +193,33 @@ fragshader.files = {
 	"ZubwayEngine/basic.frag"
 }
 
-RunProject( wingfx )
-RunProject( app )
-RunProject( game )
-RunProject( vertshader )
-RunProject( fragshader )
+if #arg == 0 then
+	arg[1] = "all"
+end
+
+for i = 1, #arg do
+	if arg[i] == "all" then
+		RunProject( wingfx )
+		RunProject( app )
+		RunProject( game )
+		RunProject( vertshader )
+		RunProject( fragshader )
+	elseif arg[i] == "wingfx" then
+		RunProject( wingfx )
+		RunProject( game )
+	elseif arg[i] == "app" then
+		RunProject( app )
+		RunProject( game )
+	elseif arg[i] == "shaders" then
+		RunProject( vertshader )
+		RunProject( fragshader )
+	elseif arg[i] == "run" then
+		os.execute(
+			"cd "..game.outdir.."/ ; ./"..game.name
+		)
+	else
+		print( "=====(WARNING)=====" )
+		print( "Unknown argument "..arg[i] )
+		os.exit(-1)
+	end
+end

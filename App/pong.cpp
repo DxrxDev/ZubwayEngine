@@ -162,12 +162,17 @@ namespace ZE {
     };
     namespace Camera {
         class Camera{
+        public:
+            void SetPos(Vector3 pos){
+                this->pos = pos;
+            }
         protected:
             Camera(){
                 pos = (Vector3){0, 0, 0};
             }
 
-            virtual Matrix GetMatrix() = 0;
+            virtual Matrix GetProj() = 0;
+            virtual Matrix GetView() = 0;
 
             Vector3 pos;
         };
@@ -178,10 +183,44 @@ namespace ZE {
                 this->aspect = aspect;
             }
 
-            virtual Matrix GetMatrix(){
-                return MatrixPerspective(
-                    fov, aspect,
-                    0.1, 5000.0
+            virtual Matrix GetProj() override{
+                float 
+                    far = 5000,
+                    near = 0.1
+                ;
+
+                Matrix out = {0};
+                float tanHalfFov = tan(fov / 2.0f);
+
+                // First row (x scaling)
+                out.m0 = 1.0f / (aspect * tanHalfFov);
+                
+                // Second row (Y scale)
+                out.m5 = 1.0f / tanHalfFov;
+                
+                // Third row (Z perspective)
+                out.m10 = far / (near - far);
+                out.m14 = (far * near) / (near - far);
+                
+                // Fourth row (W = Z for perspective divide)
+                out.m11 = -1.0f;
+                
+    
+                return out;
+
+
+                /*
+                mat = MatrixMultiply(
+                    MatrixTranslate(1, 0, 0),
+                    mat
+                );
+                */
+            }
+            virtual Matrix GetView() override{
+                return MatrixLookAt(
+                    pos,
+                    Vector3Add(pos, {0, 0, -1}),
+                    {0, 1, 0}
                 );
             }
 
@@ -288,7 +327,7 @@ int main( void ){
     */
 
     ZE::Visual::AddQuad(
-        (Box2D){0, 0, 5, 5},
+        (Box2D){0, 0, 0.5, 0.5},
         (Box2D){0, 0, 1, 1},
         0, 0,
         verts, inds
@@ -298,25 +337,26 @@ int main( void ){
     IndexBuffer ib( &wnd, inds.data(), inds.size(), 0 );
 
     Matrix view = MatrixLookAt(
-        {0, 0, 1},
+        {0, 0, 0.5},
         {0, 0, 0 },
         {0, 1, 0}
     );
     
-    /*
     ZE::Camera::ProjectionCamera cam(
         PI / 3.0,
         SCREEN_WIDTH / SCREEN_HEIGHT
     );
-    */
+    cam.SetPos({0, 0, -1.0});
+    /*
     ZE::Camera::OrthroCamera cam(
         (Vector2){SCREEN_WIDTH, SCREEN_HEIGHT}
     );
+    */
 
     std::vector<MVP> mvps = {
         {
-            MatrixTranslate(0, 0, 0),
-            view, cam.GetMatrix()
+            MatrixTranslate(0, 0, -5),
+            cam.GetView(), cam.GetProj()
         }
     };
     UniformBuffer2 ub1( &wnd, 1 );
