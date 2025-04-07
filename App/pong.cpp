@@ -211,15 +211,15 @@ namespace ZE {
 
             virtual Matrix GetProj() override{
                 float 
-                    far = 5000,
-                    near = 0.1
+                    near = 0.1,
+                    far = 5000
                 ;
                 return MatrixPerspective(fov, aspect, near, far);
             }
             virtual Matrix GetView() override{
                 return MatrixLookAt(
                     pos,
-                    Vector3Add(pos, {0, 0, -1}),
+                    Vector3Add(pos, {0, 1, -1}),
                     {0, 1, 0}
                 );
             }
@@ -246,6 +246,48 @@ namespace ZE {
             Vector2 screenSize;
         };
     };
+    namespace DataStructures{
+        class Grid {
+            public:
+                Grid(uint32_t width, uint32_t height, float scalex, float scaley){
+                    w = width;
+                    h = height;
+                    sx = scalex;
+                    sy = scaley;
+                }
+                Grid(uint32_t width, uint32_t height, float scale){
+                    w = width;
+                    h = height;
+                    sx = sy = scale;
+                }
+                Vector2 GetPos( uint32_t x, uint32_t y ){
+                    float fieldPosOffsetX = (w * sx) / 2.0f;
+                    float fieldPosOffsetY = (h * sy) / 2.0f;
+                    return (Vector2){
+                        x * sx + (sx / 2.0f) - fieldPosOffsetX,
+                        y * sy + (sy / 2.0f) - fieldPosOffsetY
+                    };
+                }
+                Vector2 GetSize(){
+                    return (Vector2){(float)w, (float)h};
+                }
+            
+                Box2D ToBox2D( uint32_t x, uint32_t y ){
+                    Vector2 r = GetPos( x, y );
+                    return (Box2D){
+                        r.x, r.y, sx, sy
+                    };
+                }
+            
+                Vector2 GetScale(){
+                    return (Vector2){sx, sy};
+                }
+            
+            private:
+                uint32_t w, h;
+                float sx, sy;
+            };
+    };
 };
 
 
@@ -257,48 +299,10 @@ Image cptoimg(cp_image_t i){
     };
 }
 
-class Grid {
-public:
-    Grid(uint32_t width, uint32_t height, float scalex, float scaley){
-        w = width;
-        h = height;
-        sx = scalex;
-        sy = scaley;
-    }
-    Grid(uint32_t width, uint32_t height, float scale){
-        w = width;
-        h = height;
-        sx = sy = scale;
-    }
-    Vector2 GetPos( uint32_t x, uint32_t y ){
-        float fieldPosOffsetX = (w * sx) / 2.0f;
-        float fieldPosOffsetY = (h * sy) / 2.0f;
-        return (Vector2){
-            x * sx + (sx / 2.0f) - fieldPosOffsetX,
-            y * sy + (sy / 2.0f) - fieldPosOffsetY
-        };
-    }
-
-    Box2D ToBox2D( uint32_t x, uint32_t y ){
-        Vector2 r = GetPos( x, y );
-        return (Box2D){
-            r.x, r.y, sx, sy
-        };
-    }
-
-    Vector2 GetScale(){
-        return (Vector2){sx, sy};
-    }
-
-private:
-    uint32_t w, h;
-    float sx, sy;
-};
-
 int main( void ){
     std::cout << "Hello World" << std::endl;
 
-    const char *appName = "Pong"; 
+    const char *appName = "Stones To Bridges"; 
 
     InitWindowSystem( );
     InitGraphicsSystem( appName );
@@ -313,9 +317,9 @@ int main( void ){
     std::vector<uint16_t> inds;
 
     /* Generate background */
-    Grid bgGrid( 2, 2, 1.0f );
-    for (uint32_t y = 0; y < 2; ++y){
-        for (uint32_t x = 0; x < 2; ++x){
+    ZE::DataStructures::Grid bgGrid( 25, 25, 1.0f );
+    for (uint32_t y = 0; y < bgGrid.GetSize().y; ++y){
+        for (uint32_t x = 0; x < bgGrid.GetSize().x; ++x){
             ZE::Visual::AddQuad(
                 bgGrid.ToBox2D(x, y),
                 {0.0f, 0.0, 0.25f, 0.25f },
@@ -326,27 +330,47 @@ int main( void ){
 
     ZE::Visual::DrawQueue dq = ZE::Visual::CreateDrawQueue(&wnd, verts, inds, 0, 0);
 
-    // ZE::Visual::AddQuad(
-    //     (Box2D){0, 0, 0.5, 0.5},
-    //     (Box2D){0, 0, 0.25, 0.25},
-    //     0, 0,
-    //     verts, inds
-    // );
+    ZE::Visual::DrawQueue FellaDQ { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
+    ZE::Visual::AddQuad(
+        (Box2D){0, 0, 2, 2}, (Box2D){0.75, 0.0, 0.25, 0.25},
+        0, 1, FellaDQ.verts, FellaDQ.inds
+    );
+    FellaDQ = ZE::Visual::CreateDrawQueue(
+        &wnd, FellaDQ.verts, FellaDQ.inds,
+        0, 0
+    );
 
+    ZE::Visual::DrawQueue TreeDQ { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
+    ZE::Visual::AddQuad(
+        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
+        0, 2, TreeDQ.verts, TreeDQ.inds
+    );
+    TreeDQ = ZE::Visual::CreateDrawQueue(
+        &wnd, TreeDQ.verts, TreeDQ.inds,
+        0, 0
+    );
 
     ZE::Camera::ProjectionCamera cam(
         PI / 3.0,
         SCREEN_WIDTH / SCREEN_HEIGHT
     );
-    cam.SetPos({0, 0, -1.0});
+    cam.SetPos({0, -5.0, 0});
     
     std::vector<MVP> mvps = {
         {
-            MatrixTranslate(0, 0, -5),
+            MatrixRotateX( PI/2.0f ),
+            cam.GetView(), cam.GetProj()
+        },
+        {
+            MatrixTranslate(0, -0.5, -10.0),
+            cam.GetView(), cam.GetProj()
+        },
+        {
+            MatrixTranslate(3, -0.5, -12.0),
             cam.GetView(), cam.GetProj()
         }
     };
-    UniformBuffer2 ub1( &wnd, 1 );
+    UniformBuffer2 ub1( &wnd, mvps.size() );
 
     ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
     
@@ -359,6 +383,7 @@ int main( void ){
     std::cout << "Entering main loop !!!" << std::endl;
 
     float groundRot = 0.0f;
+    float cposx = 0, cposy = 0;
 
     while (running){ t1 = std::chrono::high_resolution_clock::now();
         std::vector<WindowEvent> events = wnd.GetEvents();
@@ -378,6 +403,26 @@ int main( void ){
                 }
             }
 
+            if (wnd.IsPressed('w')){
+                cposy -= 0.1;
+            }
+            if (wnd.IsPressed('s')){
+                cposy += 0.1;
+            }
+            if (wnd.IsPressed('a')){
+                cposx -= 0.1;
+            }
+            if (wnd.IsPressed('d')){
+                cposx += 0.1;
+            }
+
+            cam.SetPos((Vector3){cposx, -5.0, cposy});
+            for (auto& mvp : mvps){
+                mvp.view = cam.GetView();
+            };
+
+
+
             /*
             else if (e.type == WindowEventType::MouseMove){
                 mvps[1].model = MatrixTranslate(
@@ -390,10 +435,13 @@ int main( void ){
 
         
         
-        if (wnd.IsPressed(MouseButton::Left)){
-            groundRot += 0.02;
-            mvps[0].model =  MatrixRotateX(groundRot) * MatrixTranslate(0, 0, -5);
-        }
+        // if (wnd.IsPressed(MouseButton::Left)){
+        //     groundRot += 0.02;
+        //     mvps[0].model =  MatrixRotateX(groundRot) * MatrixTranslate(0, 0, -5);
+        // }
+
+
+
 
 
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
@@ -402,7 +450,9 @@ int main( void ){
         /* =====( GRAPHICS PROCESSING )=====*/
         //////////////////////////////////////
         std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vis = {
-            {dq.vb, dq.ib}
+            {dq.vb, dq.ib},
+            {FellaDQ.vb, FellaDQ.ib},
+            {TreeDQ.vb, TreeDQ.ib}
         };
         wnd.DrawIndexed5( vis, ub1, vi );
         t2 = std::chrono::high_resolution_clock::now();

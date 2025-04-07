@@ -37,3 +37,14 @@ USAGE:
 
 - everything else
   - unsupported
+
+# Whats in the app folder?
+
+Im making a game called "Stones to Bridges". It will be a game inpired by spore and crusader kinds 3.
+
+You will be able to lead your tribe from humble beginnings in the stone age, to rule
+your map with any rhetoric you want !!
+
+Scope is still being planned up
+
+![Picture of Stones to Bridges](README.d/tree.png)
