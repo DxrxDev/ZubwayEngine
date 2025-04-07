@@ -50,7 +50,7 @@ function CreateProject( name, outdir, type )
 end
 
 function CreateCommandApp( proj )
-	ret = proj.program .. " -o" .. proj.outdir .. "/" .. proj.name .. " "
+	ret = proj.program .. " -o" .. proj.outdir .. "/" .. proj.name .. ".out "
 	
 	numFiles = #proj.files
 	for i = 1, numFiles do
@@ -215,7 +215,7 @@ for i = 1, #arg do
 		RunProject( fragshader )
 	elseif arg[i] == "run" then
 		os.execute(
-			"cd "..game.outdir.."/ ; ./"..game.name
+			"cd "..game.outdir.."/ ; ./"..game.name..".out"
 		)
 	else
 		print( "=====(WARNING)=====" )
