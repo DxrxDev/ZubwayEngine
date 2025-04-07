@@ -33,7 +33,7 @@ std::vector<WindowEvent> Window::GetEvents( void ){
 
     for (WindowEvent e : es){
         if (e.type == WindowEventType::Key){
-            keys[e.key.key] = e.key.pressed;
+            keys[(int)e.key.key] = e.key.pressed;
         }
         if (e.type == WindowEventType::MouseClk){
             mouse[(int)e.mc.mb] = e.mc.pressed;
@@ -48,7 +48,7 @@ bool Window::IsRunning( void ){
 }
 
 bool Window::IsPressed( char c ){
-    return keys[c];
+    return keys[(int)c];
 }
 bool Window::IsPressed( MouseButton mb ){
     return mouse[(int)mb];
