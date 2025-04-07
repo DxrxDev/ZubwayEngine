@@ -5,6 +5,8 @@
 xcb_connection_t *xcb_conn;
 xcb_screen_t *xcb_screen;
 
+#include "../error.hpp"
+
 void InitWindowSystem( void ){
     xcb_conn = xcb_connect(NULL, NULL);
     if (xcb_connection_has_error(xcb_conn)){
@@ -158,10 +160,40 @@ public:
                     });
                 } break;
                 case XCB_BUTTON_PRESS:{
+                    xcb_button_press_event_t e = *(xcb_button_press_event_t *)event;
+                    xcb_button_t button = e.detail;
+                    
+                    WindowEvent ev{};
+                    ev.type = WindowEventType::MouseClk;
+                    MouseButton mb;
+                    switch (button){
+                        case 1:{mb = MouseButton::Left;} break;
+                        case 2:{mb = MouseButton::Middle;} break;
+                        case 3:{mb = MouseButton::Right;} break;
+                    }
+                    ev.mc = (WindowEvent::MouseClk){
+                        mb, true
+                    };
 
+                    ret.push_back( ev );
                 } break;
                 case XCB_BUTTON_RELEASE:{
+                    xcb_button_release_event_t e = *(xcb_button_release_event_t *)event;
+                    xcb_button_t button = e.detail;
+                    
+                    WindowEvent ev{};
+                    ev.type = WindowEventType::MouseClk;
+                    MouseButton mb;
+                    switch (button){
+                        case 1:{mb = MouseButton::Left;} break;
+                        case 2:{mb = MouseButton::Middle;} break;
+                        case 3:{mb = MouseButton::Right;} break;
+                    }
+                    ev.mc = (WindowEvent::MouseClk){
+                        mb, false
+                    };
 
+                    ret.push_back( ev );
                 } break;
                 case XCB_MOTION_NOTIFY:{
                     xcb_motion_notify_event_t e = *(xcb_motion_notify_event_t*)event;

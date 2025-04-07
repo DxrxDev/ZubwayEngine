@@ -19,6 +19,9 @@ Window::Window(uint32_t width, uint32_t height, const char *title, CreationFlags
     for (uint32_t i = 0; i < UINT8_MAX; ++i){
         keys[i] = false;
     }
+    for (uint32_t i = 0; i < NUMBER_MOUSE_BUTTONS; ++i){
+        mouse[i] = false;
+    }
 }
 
 Window::~Window(){
@@ -32,6 +35,9 @@ std::vector<WindowEvent> Window::GetEvents( void ){
         if (e.type == WindowEventType::Key){
             keys[e.key.key] = e.key.pressed;
         }
+        if (e.type == WindowEventType::MouseClk){
+            mouse[(int)e.mc.mb] = e.mc.pressed;
+        }
     }
 
     return es;
@@ -43,6 +49,9 @@ bool Window::IsRunning( void ){
 
 bool Window::IsPressed( char c ){
     return keys[c];
+}
+bool Window::IsPressed( MouseButton mb ){
+    return mouse[(int)mb];
 }
 
 void *Window::GetWindowHandle( void ){

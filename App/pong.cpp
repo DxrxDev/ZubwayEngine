@@ -1,12 +1,8 @@
 #include <iostream>
 #include <string>
-#include <sstream>
 #include <vector>
-#include <limits>
-#include <fstream>
 #include <cstring>
 #include <chrono>
-#include <thread>
 
 using std::string;
 
@@ -63,6 +59,36 @@ void AddTriangleFancy( float x, float y, float angle1, float angle2, float side1
 
 namespace ZE {
     namespace Visual {
+        struct DrawQueue {
+            std::vector<Vertex>   verts;
+            std::vector<uint16_t> inds;
+
+        	VertexBuffer *vb;
+            IndexBuffer *ib;
+        };
+
+        /**
+         * @brief Create a Draw Queue object
+         * 
+         * @param wnd 
+         * @param verts 
+         * @param inds 
+         * @param vr 
+         * @param ir 
+         * @return DrawQueue 
+         */
+        DrawQueue CreateDrawQueue(GraphicsWindow *wnd, std::vector<Vertex> verts, std::vector<uint16_t> inds, size_t vr, size_t ir){
+            return (DrawQueue){verts, inds,
+                new VertexBuffer( wnd, verts, vr ),
+            new IndexBuffer( wnd, inds.data(), inds.size(), ir )};
+        }
+        void FreeDrawQueue( DrawQueue& dq ){
+            if (dq.vb)
+                delete dq.vb;
+            if (dq.ib)
+                delete dq.ib;
+        }
+
         /**
          * @brief Add a Quad to your draw queue
          * @param rect 
@@ -188,33 +214,7 @@ namespace ZE {
                     far = 5000,
                     near = 0.1
                 ;
-
-                Matrix out = {0};
-                float tanHalfFov = tan(fov / 2.0f);
-
-                // First row (x scaling)
-                out.m0 = 1.0f / (aspect * tanHalfFov);
-                
-                // Second row (Y scale)
-                out.m5 = 1.0f / tanHalfFov;
-                
-                // Third row (Z perspective)
-                out.m10 = far / (near - far);
-                out.m14 = (far * near) / (near - far);
-                
-                // Fourth row (W = Z for perspective divide)
-                out.m11 = -1.0f;
-                
-    
-                return out;
-
-
-                /*
-                mat = MatrixMultiply(
-                    MatrixTranslate(1, 0, 0),
-                    mat
-                );
-                */
+                return MatrixPerspective(fov, aspect, near, far);
             }
             virtual Matrix GetView() override{
                 return MatrixLookAt(
@@ -268,7 +268,7 @@ public:
     Grid(uint32_t width, uint32_t height, float scale){
         w = width;
         h = height;
-        sx = scale;
+        sx = sy = scale;
     }
     Vector2 GetPos( uint32_t x, uint32_t y ){
         float fieldPosOffsetX = (w * sx) / 2.0f;
@@ -312,47 +312,34 @@ int main( void ){
 	std::vector<Vertex> verts;
     std::vector<uint16_t> inds;
 
-    /* Generate background 
-
-    Grid bgGrid( FEILD_WIDTH, FEILD_HEIGHT, 1.0f );
-    for (uint32_t y = 0; y < FEILD_HEIGHT; ++y){
-        for (uint32_t x = 0; x < FEILD_WIDTH; ++x){
-            AddRectangle2(
+    /* Generate background */
+    Grid bgGrid( 2, 2, 1.0f );
+    for (uint32_t y = 0; y < 2; ++y){
+        for (uint32_t x = 0; x < 2; ++x){
+            ZE::Visual::AddQuad(
                 bgGrid.ToBox2D(x, y),
-                {0.0f, 0.0, 1.0f / 4.0f, 1.0f/ 4.0f },
-                0, verts, inds
+                {0.0f, 0.0, 0.25f, 0.25f },
+                0, 0, verts, inds
             );
         }
     }
-    */
 
-    ZE::Visual::AddQuad(
-        (Box2D){0, 0, 0.5, 0.5},
-        (Box2D){0, 0, 1, 1},
-        0, 0,
-        verts, inds
-    );
+    ZE::Visual::DrawQueue dq = ZE::Visual::CreateDrawQueue(&wnd, verts, inds, 0, 0);
 
-	VertexBuffer vb( &wnd, verts, 0 );
-    IndexBuffer ib( &wnd, inds.data(), inds.size(), 0 );
+    // ZE::Visual::AddQuad(
+    //     (Box2D){0, 0, 0.5, 0.5},
+    //     (Box2D){0, 0, 0.25, 0.25},
+    //     0, 0,
+    //     verts, inds
+    // );
 
-    Matrix view = MatrixLookAt(
-        {0, 0, 0.5},
-        {0, 0, 0 },
-        {0, 1, 0}
-    );
-    
+
     ZE::Camera::ProjectionCamera cam(
         PI / 3.0,
         SCREEN_WIDTH / SCREEN_HEIGHT
     );
     cam.SetPos({0, 0, -1.0});
-    /*
-    ZE::Camera::OrthroCamera cam(
-        (Vector2){SCREEN_WIDTH, SCREEN_HEIGHT}
-    );
-    */
-
+    
     std::vector<MVP> mvps = {
         {
             MatrixTranslate(0, 0, -5),
@@ -363,7 +350,6 @@ int main( void ){
 
     ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
     
-
     bool running = true;
     std::chrono::time_point<std::chrono::high_resolution_clock> t1, t2;
     float desiredMilliCount = 16.667;
@@ -372,13 +358,15 @@ int main( void ){
 
     std::cout << "Entering main loop !!!" << std::endl;
 
-    Vector3 CamPos;
-
+    float groundRot = 0.0f;
 
     while (running){ t1 = std::chrono::high_resolution_clock::now();
         std::vector<WindowEvent> events = wnd.GetEvents();
         running = wnd.IsRunning();
-        
+
+        ////////////////////////////
+        /* =====(LOCIG STUFF)=====*/
+        ////////////////////////////
         for (WindowEvent e : events){
             if (e.type == WindowEventType::Key) {
                 if (e.key.pressed){
@@ -399,10 +387,22 @@ int main( void ){
                 );
             }*/
         }
+
+        
+        
+        if (wnd.IsPressed(MouseButton::Left)){
+            groundRot += 0.02;
+            mvps[0].model =  MatrixRotateX(groundRot) * MatrixTranslate(0, 0, -5);
+        }
+
+
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
         
+        //////////////////////////////////////
+        /* =====( GRAPHICS PROCESSING )=====*/
+        //////////////////////////////////////
         std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vis = {
-            {&vb, &ib}
+            {dq.vb, dq.ib}
         };
         wnd.DrawIndexed5( vis, ub1, vi );
         t2 = std::chrono::high_resolution_clock::now();

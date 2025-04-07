@@ -12,6 +12,7 @@ void *GetWindowSystem( void );
 enum class WindowEventType {
     Key, MouseClk, MouseMove
 };
+#define NUMBER_MOUSE_BUTTONS 3
 enum class MouseButton {
     Left, Middle, Right
 };
@@ -53,10 +54,12 @@ public:
     std::vector<WindowEvent> GetEvents( void );
     bool IsRunning( void );
     bool IsPressed( char c );
+    bool IsPressed( MouseButton mb );
 
     void *GetWindowHandle( void );
 private:
     bool keys[UINT8_MAX];
+    bool mouse[NUMBER_MOUSE_BUTTONS];
     class WindowImpl;
     WindowImpl *implementation;
 };
