@@ -14,7 +14,6 @@ void InitWindowSystem( void ){
     }
 
     xcb_screen = xcb_setup_roots_iterator( xcb_get_setup(xcb_conn) ).data;
-
 }
 void *GetWindowSystem( void ){
     return xcb_conn;
@@ -146,7 +145,6 @@ public:
                             true, false, false
                         }
                     });
-                    //std::cout << (char)ks << std::endl;
                 } break;
 
                 case XCB_KEY_RELEASE:{

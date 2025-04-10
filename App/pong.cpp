@@ -402,27 +402,6 @@ int main( void ){
                     }
                 }
             }
-
-            if (wnd.IsPressed('w')){
-                cposy -= 0.1;
-            }
-            if (wnd.IsPressed('s')){
-                cposy += 0.1;
-            }
-            if (wnd.IsPressed('a')){
-                cposx -= 0.1;
-            }
-            if (wnd.IsPressed('d')){
-                cposx += 0.1;
-            }
-
-            cam.SetPos((Vector3){cposx, -5.0, cposy});
-            for (auto& mvp : mvps){
-                mvp.view = cam.GetView();
-            };
-
-
-
             /*
             else if (e.type == WindowEventType::MouseMove){
                 mvps[1].model = MatrixTranslate(
@@ -441,6 +420,23 @@ int main( void ){
         // }
 
 
+        if (wnd.IsPressed('w')){
+            cposy -= 0.1;
+        }
+        if (wnd.IsPressed('s')){
+            cposy += 0.1;
+        }
+        if (wnd.IsPressed('a')){
+            cposx -= 0.1;
+        }
+        if (wnd.IsPressed('d')){
+            cposx += 0.1;
+        }
+
+        cam.SetPos((Vector3){cposx, -5.0, cposy});
+        for (auto& mvp : mvps){
+            mvp.view = cam.GetView();
+        };
 
 
 
