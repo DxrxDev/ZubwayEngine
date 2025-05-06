@@ -375,7 +375,7 @@ int main( void ){
             MatrixTranslate(2, -0.5, -10.0),
         }
     };
-    UniformBuffer3 ub1( &wnd, mvps.size() );
+    UniformBuffer ub1( &wnd, mvps.size() );
 
     ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
 
@@ -462,7 +462,7 @@ int main( void ){
             {FellaDQ.vb, FellaDQ.ib},
             {TreeDQ.vb, TreeDQ.ib}
         };
-        wnd.DrawIndexed6( vis, ub1, vi, cam.GetView() * cam.GetProj() );
+        wnd.DrawIndexed( vis, ub1, vi, cam.GetView() * cam.GetProj() );
         t2 = std::chrono::high_resolution_clock::now();
 
         millisecondsSinceLastFrame =

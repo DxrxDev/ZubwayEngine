@@ -290,174 +290,9 @@ uint32_t IndexBuffer::GetIndCount( void ){
     return numInds;
 }
 
-
-UniformBuffer1::UniformBuffer1( GraphicsWindow *wnd, MVP mvp ){
-    window = wnd;
-    this->mvp = mvp;
-
-    uBuffer = new Buffer(
-        wnd->GetDevice(), wnd->GetPhysicalDevice(),
-        MVP::GetSize(),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        (
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        )
-    );
-    UploadMVP();
-
-    VkDescriptorSetLayout uniformLayouts[] = {
-        window->GetDescriptorLayout()
-    };
-    VkDescriptorSetAllocateInfo sdAI = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .pNext = nullptr,
-        .descriptorPool = window->GetDescriptorPool(),
-        .descriptorSetCount = 1,
-        .pSetLayouts = uniformLayouts
-    };
-
-    if (vkAllocateDescriptorSets(window->GetDevice(), &sdAI, &descSet) != VK_SUCCESS) {
-        Error() << "Couldn't allocate descriptor sets!";
-    }
-
-    VkDescriptorBufferInfo bufferInfo = {
-        .buffer = uBuffer->GetBuffer(),
-        .offset = 0,
-        .range = MVP::GetSize()
-    };
-
-    VkWriteDescriptorSet descriptorWrite = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .pNext = nullptr,
-        .dstSet = descSet,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pImageInfo = nullptr,
-        .pBufferInfo = &bufferInfo,
-        .pTexelBufferView = nullptr
-    };
-
-    // Update the descriptor set to bind the uniform buffer
-    vkUpdateDescriptorSets(window->GetDevice(), 1, &descriptorWrite, 0, nullptr);
-
-}
-UniformBuffer1::~UniformBuffer1( void ){
-    delete uBuffer;
-}
-int32_t UniformBuffer1::BindBuffer( VkCommandBuffer cmd ){
-    VkDescriptorSet desSets[1] = {
-        descSet
-    };
-    vkCmdBindDescriptorSets(
-        cmd,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        window->GetPipelineLayout(),
-        0,
-        1, desSets,
-        0, nullptr
-    );
-
-    return 0;
-}
-void UniformBuffer1::UpdateMVP( MVP mvp ){
-    this->mvp = mvp;
-    UploadMVP( );
-}
-void UniformBuffer1::UploadMVP( void ){
-    void* mappeddata;
-    vkMapMemory(window->GetDevice(), uBuffer->GetMemory(), 0, uBuffer->GetSizeOnGPU(), 0, &mappeddata);
-    memcpy(mappeddata, &mvp, uBuffer->GetSizeOnGPU());
-    vkUnmapMemory(window->GetDevice(), uBuffer->GetMemory());
-    // free( mappeddata );
-}
-
-UniformBuffer2::UniformBuffer2( GraphicsWindow *wnd, uint32_t capacity ){
-    window = wnd;
-    
-    uBuffer = new Buffer(
-        wnd->GetDevice(), wnd->GetPhysicalDevice(),
-        MVP::GetSize() * capacity,
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        (
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        )
-    );
-
-    VkDescriptorSetLayout uniformLayouts[] = {
-        window->GetDescriptorLayout()
-    };
-    VkDescriptorSetAllocateInfo sdAI = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .pNext = nullptr,
-        .descriptorPool = window->GetDescriptorPool(),
-        .descriptorSetCount = 1,
-        .pSetLayouts = uniformLayouts
-    };
-
-    if (vkAllocateDescriptorSets(window->GetDevice(), &sdAI, &descSet) != VK_SUCCESS) {
-        Error() << "Couldn't allocate descriptor sets! (1)";
-    }
-
-    VkDescriptorBufferInfo bufferInfo = {
-        .buffer = uBuffer->GetBuffer(),
-        .offset = 0,
-        .range = MVP::GetSize() * capacity
-    };
-
-    VkWriteDescriptorSet descriptorWrite = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .pNext = nullptr,
-        .dstSet = descSet,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pImageInfo = nullptr,
-        .pBufferInfo = &bufferInfo,
-        .pTexelBufferView = nullptr
-    };
-
-    // Update the descriptor set to bind the uniform buffer
-    vkUpdateDescriptorSets(window->GetDevice(), 1, &descriptorWrite, 0, nullptr);
-}
-UniformBuffer2::~UniformBuffer2( void ){
-    delete uBuffer;
-}
-int32_t UniformBuffer2::BindBuffer( VkCommandBuffer cmd ){
-    VkDescriptorSet desSets[1] = {
-        descSet
-    };
-    vkCmdBindDescriptorSets(
-        cmd,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        window->GetPipelineLayout(),
-        0,
-        1, desSets,
-        0, nullptr
-    );
-
-    return 0;
-}
-void UniformBuffer2::UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset ){
-    void* mappeddata;
-    vkMapMemory(window->GetDevice(), uBuffer->GetMemory(), 0, uBuffer->GetSizeOnGPU(), 0, &mappeddata);
-
-    MVP *copyAt = (MVP *)(mappeddata) + offset;
-    memcpy(copyAt, mvps, MVP::GetSize() * nmvp);
-    
-    vkUnmapMemory(window->GetDevice(), uBuffer->GetMemory());
-    // free( mappeddata );
-}
-void UniformBuffer2::UploadMVP( void ){
-}
-
 /* =====(UNIFORM BUFFER)===== */
 
-UniformBuffer3::UniformBuffer3( GraphicsWindow *wnd, uint32_t capacity ){
+UniformBuffer::UniformBuffer( GraphicsWindow *wnd, uint32_t capacity ){
     window = wnd;
     
     uBuffer = new Buffer(
@@ -507,10 +342,10 @@ UniformBuffer3::UniformBuffer3( GraphicsWindow *wnd, uint32_t capacity ){
     // Update the descriptor set to bind the uniform buffer
     vkUpdateDescriptorSets(window->GetDevice(), 1, &descriptorWrite, 0, nullptr);
 }
-UniformBuffer3::~UniformBuffer3( void ){
+UniformBuffer::~UniformBuffer( void ){
     delete uBuffer;
 }
-int32_t UniformBuffer3::BindBuffer( VkCommandBuffer cmd ){
+int32_t UniformBuffer::BindBuffer( VkCommandBuffer cmd ){
     VkDescriptorSet desSets[1] = {
         descSet
     };
@@ -525,7 +360,7 @@ int32_t UniformBuffer3::BindBuffer( VkCommandBuffer cmd ){
 
     return 0;
 }
-void UniformBuffer3::UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset ){
+void UniformBuffer::UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset ){
     void* mappeddata;
     vkMapMemory(window->GetDevice(), uBuffer->GetMemory(), 0, uBuffer->GetSizeOnGPU(), 0, &mappeddata);
 
@@ -535,7 +370,7 @@ void UniformBuffer3::UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset ){
     vkUnmapMemory(window->GetDevice(), uBuffer->GetMemory());
     // free( mappeddata );
 }
-void UniformBuffer3::UploadMVP( void ){
+void UniformBuffer::UploadMVP( void ){
 }
 
 //TextureBuffer::TextureBuffer( GraphicsSystemInfo )
@@ -1217,6 +1052,7 @@ void GraphicsWindow::EndRenderPassCommand( VkCommandBuffer presentbuffer ){
     vkEndCommandBuffer(presentbuffer);
 }
 
+/*
 int32_t GraphicsWindow::Draw( VertexBuffer& vb ){
     vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
     vkResetFences( device, 1, &fense_inFlight );
@@ -1263,274 +1099,8 @@ int32_t GraphicsWindow::Draw( VertexBuffer& vb ){
     }
 
     return 0;
-}
-int32_t GraphicsWindow::DrawIndexed( VertexBuffer& vb, IndexBuffer& ib, std::vector<UniformBuffer1*> ubs ){
-    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
-    vkResetFences( device, 1, &fense_inFlight );
-
-    Command cmd( device, cmdpool );
-
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
-
-    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
-    vb.BindBuffer( cmd.GetCmd() );
-    ib.BindBuffer( cmd.GetCmd() );
-
-    for (uint32_t i = 0; i < ubs.size(); ++i){
-        ubs[i]->BindBuffer( cmd.GetCmd() );
-        vkCmdDrawIndexed(cmd.GetCmd(), ib.GetIndCount(), 1, 0, 0, 0);
-    }
-
-    EndRenderPassCommand( cmd.GetCmd() );   
-
-    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
-    VkSubmitInfo submit = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = cmd.GetPtr(),
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores
-    };
-    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
-
-    VkSwapchainKHR swapchains[] = {swapchain};
-    VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapchains,
-        .pImageIndices = &imageIndex,
-    };
-
-    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
-        Error() << "Couldn't Present image :/";
-    }
-
-    return 0;
-}
-int32_t GraphicsWindow::DrawIndexed2( VertexBuffer& vb, IndexBuffer& ib, UniformBuffer2& ub ){
-    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
-    vkResetFences( device, 1, &fense_inFlight );
-
-    Command cmd( device, cmdpool );
-
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
-
-    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
-    vb.BindBuffer( cmd.GetCmd() );
-    ib.BindBuffer( cmd.GetCmd() );
-    ub.BindBuffer( cmd.GetCmd() );
-
-    vkCmdDrawIndexed(cmd.GetCmd(), ib.GetIndCount(), 1, 0, 0, 0);
-    
-
-    EndRenderPassCommand( cmd.GetCmd() );   
-
-    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
-    VkSubmitInfo submit = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = cmd.GetPtr(),
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores
-    };
-    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
-
-    VkSwapchainKHR swapchains[] = {swapchain};
-    VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapchains,
-        .pImageIndices = &imageIndex,
-    };
-
-    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
-        Error() << "Couldn't Present image :/";
-    }
-
-    return 0;
-}
-int32_t GraphicsWindow::DrawIndexed3( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub ){
-    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
-    vkResetFences( device, 1, &fense_inFlight );
-
-    Command cmd( device, cmdpool );
-
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
-
-    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
-    ib.BindBuffer( cmd.GetCmd() );
-    ub.BindBuffer( cmd.GetCmd() );
-    
-    for (VertexBuffer *vb : vbs){
-        vb->BindBuffer( cmd.GetCmd() );
-        vkCmdDrawIndexed(cmd.GetCmd(), ib.GetIndCount(), 1, 0, 0, 0);
-    }
-
-    EndRenderPassCommand( cmd.GetCmd() );   
-
-    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
-    VkSubmitInfo submit = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = cmd.GetPtr(),
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores
-    };
-    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
-
-    VkSwapchainKHR swapchains[] = {swapchain};
-    VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapchains,
-        .pImageIndices = &imageIndex,
-    };
-
-    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
-        Error() << "Couldn't Present image :/";
-    }
-
-    return 0;
-}
-int32_t GraphicsWindow::DrawIndexed4( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub, VulkanImage& vi ){
-    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
-    vkResetFences( device, 1, &fense_inFlight );
-
-    Command cmd( device, cmdpool );
-
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
-
-    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
-    ib.BindBuffer( cmd.GetCmd() );
-    ub.BindBuffer( cmd.GetCmd() );
-    vi.Bind( cmd.GetCmd() );
-    
-    for (VertexBuffer *vb : vbs){
-        vb->BindBuffer( cmd.GetCmd() );
-        vkCmdDrawIndexed(cmd.GetCmd(), ib.GetIndCount(), 1, 0, 0, 0);
-    }
-
-    EndRenderPassCommand( cmd.GetCmd() );   
-
-    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
-    VkSubmitInfo submit = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = cmd.GetPtr(),
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores
-    };
-    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
-
-    VkSwapchainKHR swapchains[] = {swapchain};
-    VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapchains,
-        .pImageIndices = &imageIndex,
-    };
-
-    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
-        Error() << "Couldn't Present image :/";
-    }
-
-    return 0;
-}
-int32_t GraphicsWindow::DrawIndexed5( std::vector<std::pair<VertexBuffer*, IndexBuffer*>> vibuffs, UniformBuffer2& ub, VulkanImage& vi ){
-    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
-    vkResetFences( device, 1, &fense_inFlight );
-
-    Command cmd( device, cmdpool );
-
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
-
-    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
-    ub.BindBuffer( cmd.GetCmd() );
-    vi.Bind( cmd.GetCmd() );
-    
-    for (auto vi : vibuffs){
-        std::get<0>(vi)->BindBuffer( cmd.GetCmd() );
-        std::get<1>(vi)->BindBuffer( cmd.GetCmd() );
-        vkCmdDrawIndexed(cmd.GetCmd(), std::get<1>(vi)->GetIndCount(), 1, 0, 0, 0);
-    }
-
-    EndRenderPassCommand( cmd.GetCmd() );   
-
-    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
-    VkSubmitInfo submit = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = cmd.GetPtr(),
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores
-    };
-    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
-
-    VkSwapchainKHR swapchains[] = {swapchain};
-    VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapchains,
-        .pImageIndices = &imageIndex,
-    };
-
-    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
-        Error() << "Couldn't Present image :/";
-    }
-
-    return 0;
-}
-int32_t GraphicsWindow::DrawIndexed6( std::vector<std::pair<VertexBuffer*, IndexBuffer*>> vibuffs, UniformBuffer3& ub, VulkanImage& vi, Matrix vp ){
+}*/
+int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexBuffer*>> vibuffs, UniformBuffer& ub, VulkanImage& vi, Matrix vp ){
     vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
     vkResetFences( device, 1, &fense_inFlight );
 

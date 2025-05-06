@@ -144,39 +144,11 @@ private:
     size_t reserved;
     size_t numInds;
 };
-class UniformBuffer1 {
+
+class UniformBuffer{
 public:
-    UniformBuffer1( GraphicsWindow *wnd, MVP mvp );
-    ~UniformBuffer1( void );
-    int32_t BindBuffer( VkCommandBuffer cmd );
-
-    void UpdateMVP( MVP mvp );
-private:
-    void UploadMVP( void );
-
-    GraphicsWindow *window;
-    MVP mvp;
-    Buffer *uBuffer;
-    VkDescriptorSet descSet;
-};
-class UniformBuffer2 {
-public:
-    UniformBuffer2( GraphicsWindow *wnd, uint32_t capacity );
-    ~UniformBuffer2( void );
-    int32_t BindBuffer( VkCommandBuffer cmd );
-
-    void UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset );
-private:
-    void UploadMVP( void );
-
-    GraphicsWindow *window;
-    Buffer *uBuffer;
-    VkDescriptorSet descSet;
-};
-class UniformBuffer3{
-public:
-    UniformBuffer3( GraphicsWindow *wnd, uint32_t capacity );
-    ~UniformBuffer3( void );
+    UniformBuffer( GraphicsWindow *wnd, uint32_t capacity );
+    ~UniformBuffer( void );
     int32_t BindBuffer( VkCommandBuffer cmd );
 
     void UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset );
@@ -221,13 +193,7 @@ public:
     GraphicsWindow( uint32_t width, uint32_t height, const char *title, CreationFlags flag );
     ~GraphicsWindow();
 
-    int32_t Draw( VertexBuffer& vb );
-    int32_t DrawIndexed( VertexBuffer& vb, IndexBuffer& ib, std::vector<UniformBuffer1*> ubs );
-    int32_t DrawIndexed2( VertexBuffer& vb, IndexBuffer& ib, UniformBuffer2& ub );
-    int32_t DrawIndexed3( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub );
-    int32_t DrawIndexed4( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub, VulkanImage& vi );
-    int32_t DrawIndexed5( std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vibuffs, UniformBuffer2& ub, VulkanImage& vi );
-    int32_t DrawIndexed6( std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vibuffs, UniformBuffer3& ub, VulkanImage& vi, Matrix vp );
+    int32_t DrawIndexed( std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vibuffs, UniformBuffer& ub, VulkanImage& vi, Matrix vp );
 
     int32_t PrepareDraws( void );
     int32_t PresentDraws( void );
@@ -298,7 +264,7 @@ private:
     VkSemaphore                semaphore_renderDone;
     VkFence                    fense_inFlight;
 
-    UniformBuffer1 *ub;
+    UniformBuffer *ub;
 
     VkExtent2D ex;
 };
