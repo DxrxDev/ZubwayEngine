@@ -364,25 +364,21 @@ int main( void ){
     std::vector<MVP> mvps = {
         {
             MatrixRotateX( PI/2.0f ),
-            cam.GetView(), cam.GetProj()
         },
         {
             MatrixTranslate(0, -0.5, -10.0),
-            cam.GetView(), cam.GetProj()
         },
         {
             MatrixTranslate(3, -0.5, -12.0),
-            cam.GetView(), cam.GetProj()
         },
         {
             MatrixTranslate(2, -0.5, -10.0),
-            cam.GetView(), cam.GetProj()
         }
     };
-    UniformBuffer2 ub1( &wnd, mvps.size() );
+    UniformBuffer3 ub1( &wnd, mvps.size() );
 
     ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
-    
+
     bool running = true;
     std::chrono::time_point<std::chrono::high_resolution_clock> t1, t2;
     float desiredMilliCount = 16.667;
@@ -454,9 +450,6 @@ int main( void ){
 
         
         cam.SetPos((Vector3){cposx, -5.0, cposy});
-        for (auto& mvp : mvps){
-            mvp.view = cam.GetView();
-        };
         mvps[1].model = MatrixTranslate(phillaPos.x, phillaPos.y, phillaPos.z);
 
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
@@ -469,7 +462,7 @@ int main( void ){
             {FellaDQ.vb, FellaDQ.ib},
             {TreeDQ.vb, TreeDQ.ib}
         };
-        wnd.DrawIndexed5( vis, ub1, vi );
+        wnd.DrawIndexed6( vis, ub1, vi, cam.GetView() * cam.GetProj() );
         t2 = std::chrono::high_resolution_clock::now();
 
         millisecondsSinceLastFrame =

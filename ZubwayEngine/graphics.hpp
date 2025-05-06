@@ -65,10 +65,10 @@ struct Vertex{
 };
 
 struct MVP{
-    Matrix model, view, projection;
+    Matrix model;
 
     static uint32_t GetSize(){
-        return sizeof( Matrix ) * 3;
+        return sizeof( Matrix ) * 1;
     }
     static VkDescriptorSet GetDesc( void ){
         return {
@@ -173,6 +173,20 @@ private:
     Buffer *uBuffer;
     VkDescriptorSet descSet;
 };
+class UniformBuffer3{
+public:
+    UniformBuffer3( GraphicsWindow *wnd, uint32_t capacity );
+    ~UniformBuffer3( void );
+    int32_t BindBuffer( VkCommandBuffer cmd );
+
+    void UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset );
+private:
+    void UploadMVP( void );
+
+    GraphicsWindow *window;
+    Buffer *uBuffer;
+    VkDescriptorSet descSet;
+};
 class TextureBuffer {
 public:
     TextureBuffer( GraphicsWindow *wnd, Image img );
@@ -213,6 +227,7 @@ public:
     int32_t DrawIndexed3( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub );
     int32_t DrawIndexed4( std::vector<VertexBuffer*>& vbs, IndexBuffer& ib, UniformBuffer2& ub, VulkanImage& vi );
     int32_t DrawIndexed5( std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vibuffs, UniformBuffer2& ub, VulkanImage& vi );
+    int32_t DrawIndexed6( std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vibuffs, UniformBuffer3& ub, VulkanImage& vi, Matrix vp );
 
     int32_t PrepareDraws( void );
     int32_t PresentDraws( void );
