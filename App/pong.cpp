@@ -1,4 +1,5 @@
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 #include <cstring>
@@ -286,7 +287,7 @@ namespace ZE {
             private:
                 uint32_t w, h;
                 float sx, sy;
-            };
+        };
     };
 };
 
@@ -345,11 +346,15 @@ int main( void ){
         (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
         0, 2, TreeDQ.verts, TreeDQ.inds
     );
+    ZE::Visual::AddQuad(
+        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
+        0, 3, TreeDQ.verts, TreeDQ.inds
+    );
     TreeDQ = ZE::Visual::CreateDrawQueue(
         &wnd, TreeDQ.verts, TreeDQ.inds,
         0, 0
     );
-
+    
     ZE::Camera::ProjectionCamera cam(
         PI / 3.0,
         SCREEN_WIDTH / SCREEN_HEIGHT
@@ -368,6 +373,10 @@ int main( void ){
         {
             MatrixTranslate(3, -0.5, -12.0),
             cam.GetView(), cam.GetProj()
+        },
+        {
+            MatrixTranslate(2, -0.5, -10.0),
+            cam.GetView(), cam.GetProj()
         }
     };
     UniformBuffer2 ub1( &wnd, mvps.size() );
@@ -384,6 +393,16 @@ int main( void ){
 
     float groundRot = 0.0f;
     float cposx = 0, cposy = 0;
+
+    std::vector<Vector3> TreePositions = {
+        {3, -0.5, -12},
+        {2, -0.5, -10},
+    };
+
+    Vector3 phillaPos = {
+        0, -0.5, -10.0
+    };
+
 
     while (running){ t1 = std::chrono::high_resolution_clock::now();
         std::vector<WindowEvent> events = wnd.GetEvents();
@@ -402,23 +421,7 @@ int main( void ){
                     }
                 }
             }
-            /*
-            else if (e.type == WindowEventType::MouseMove){
-                mvps[1].model = MatrixTranslate(
-                    (e.mm.x * (SCREEN_WIDTH / 600.0f)) + SCREEN_LEFT,
-                    (e.mm.y * (SCREEN_HEIGHT / 400.0f)) + SCREEN_TOP,
-                    0
-                );
-            }*/
         }
-
-        
-        
-        // if (wnd.IsPressed(MouseButton::Left)){
-        //     groundRot += 0.02;
-        //     mvps[0].model =  MatrixRotateX(groundRot) * MatrixTranslate(0, 0, -5);
-        // }
-
 
         if (wnd.IsPressed('w')){
             cposy -= 0.1;
@@ -433,12 +436,28 @@ int main( void ){
             cposx += 0.1;
         }
 
+        // Find closest tree
+        int64_t indexOfClosestTree = -1;
+        float closestTreeDist = std::numeric_limits<float>::max();
+        for (int i = 0; i < TreePositions.size(); ++i){
+            float cdist = sqrt(
+                pow(phillaPos.x - TreePositions[i].x, 2) + 
+                pow(phillaPos.y - TreePositions[i].y, 2) + 
+                pow(phillaPos.z - TreePositions[i].z, 2)
+            );
+
+            if (cdist < closestTreeDist){
+                closestTreeDist = cdist;
+                indexOfClosestTree = i;
+            }
+        }
+
+        
         cam.SetPos((Vector3){cposx, -5.0, cposy});
         for (auto& mvp : mvps){
             mvp.view = cam.GetView();
         };
-
-
+        mvps[1].model = MatrixTranslate(phillaPos.x, phillaPos.y, phillaPos.z);
 
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
         
