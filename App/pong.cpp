@@ -1,11 +1,10 @@
+#include <cstdint>
 #include <iostream>
 #include <limits>
-#include <string>
+//#include <memory> Currently unused
 #include <vector>
 #include <cstring>
 #include <chrono>
-
-using std::string;
 
 #include <stdlib.h>
 
@@ -27,36 +26,6 @@ float millisecondsSinceLastFrame;
 
 #define MAX_TRANSFORMS 1024
 
-/*
-void AddTriangle( Vector3 points[3], uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds ){
-    uint32_t offset = verts.size();
-    for (uint32_t i = 0; i < 3; ++i){
-        verts.push_back({ points[i], trs });
-    }
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 1 );
-    inds.push_back( offset + 2 );
-}
-void AddTriangleFancy( float x, float y, float angle1, float angle2, float side1, uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds ){
-    float angle3 = 180.f - (angle1 + angle2);
-    float h = sinf( angle2 * DEG2RAD ) * side1 / sinf( angle3 * DEG2RAD );
-
-    float u = h * cosf(angle1 * DEG2RAD);
-    float v = h * sinf(angle1 * DEG2RAD);
-    uint32_t offset = verts.size();
-
-    float centreX = (side1/2.0);
-    float centreY = v / 2.0f;
-
-    verts.push_back({{x         - centreX, y + centreY,     0.0f}, trs});
-    verts.push_back({{x + u     - centreX, y + centreY - v, 0.0f}, trs});
-    verts.push_back({{x + side1 - centreX, y + centreY,     0.0f}, trs});
-
-    inds.push_back( offset + 0 );
-    inds.push_back( offset + 1 );
-    inds.push_back( offset + 2 );
-}
-*/
 
 namespace ZE {
     namespace Visual {
@@ -78,10 +47,12 @@ namespace ZE {
          * @param ir 
          * @return DrawQueue 
          */
-        DrawQueue CreateDrawQueue(GraphicsWindow *wnd, std::vector<Vertex> verts, std::vector<uint16_t> inds, size_t vr, size_t ir){
-            return (DrawQueue){verts, inds,
+        DrawQueue CreateDrawQueue(GraphicsWindow *wnd, std::vector<Vertex>& verts, std::vector<uint16_t>& inds, size_t vr, size_t ir){
+            return (DrawQueue){
+                verts, inds,
                 new VertexBuffer( wnd, verts, vr ),
-            new IndexBuffer( wnd, inds.data(), inds.size(), ir )};
+                new IndexBuffer( wnd, inds.data(), inds.size(), ir )
+            };
         }
         void FreeDrawQueue( DrawQueue& dq ){
             if (dq.vb)
@@ -164,6 +135,73 @@ namespace ZE {
 
             return nullptr;
         };
+
+        const char *AddQuad(
+            Box2D rect, Box2D texture,
+            uint32_t texRot, uint32_t transformID, Matrix mat,
+            std::vector<Vertex>& verts, std::vector<uint16_t>& inds
+        ){
+            if (transformID >= MAX_TRANSFORMS)
+                return "ZE::Visual::AddQuad(): transformID out of bounds!";
+            float hw = rect.w / 2.0f, hh = rect.h / 2.0f;
+            uint32_t offset = verts.size();
+
+            Vector2 texcorners[4] = {
+                {texture.x, texture.y},
+                {texture.x + texture.w, texture.y},
+                {texture.x, texture.y + texture.h},
+                {texture.x + texture.w, texture.y + texture.h}
+            };
+
+            uint64_t texrot[4];
+            switch (texRot % 4){
+                default: // FLOWING TO NEXT
+                case 0: {
+                    texrot[0] = 0;
+                    texrot[1] = 1;
+                    texrot[2] = 2;
+                    texrot[3] = 3;
+                } break;
+                case 1: {
+                    texrot[0] = 2;
+                    texrot[1] = 0;
+                    texrot[2] = 3;
+                    texrot[3] = 1;
+                } break;
+                case 2: {
+                    texrot[0] = 3;
+                    texrot[1] = 2;
+                    texrot[2] = 1;
+                    texrot[3] = 0;
+                } break;
+                case 3: {
+                    texrot[0] = 1;
+                    texrot[1] = 3;
+                    texrot[2] = 0;
+                    texrot[3] = 2;
+                } break;
+            }
+        
+            Vector3 v1 = (Vector3){rect.x - hw, rect.y - hh, 0} * mat;
+            Vector3 v2 = (Vector3){rect.x + hw, rect.y - hh, 0} * mat;
+            Vector3 v3 = (Vector3){rect.x - hw, rect.y + hh, 0} * mat;
+            Vector3 v4 = (Vector3){rect.x + hw, rect.y + hh, 0} * mat;
+            verts.push_back({v1, texcorners[texrot[0]], transformID}); //TL
+            verts.push_back({v2, texcorners[texrot[1]], transformID}); //TR
+            verts.push_back({v3, texcorners[texrot[2]], transformID}); //BL
+            verts.push_back({v4, texcorners[texrot[3]], transformID}); //BR
+
+
+            inds.push_back( offset + 0 );
+            inds.push_back( offset + 3 );
+            inds.push_back( offset + 2 );
+
+            inds.push_back( offset + 0 );
+            inds.push_back( offset + 1 );
+            inds.push_back( offset + 3 );
+
+            return nullptr;
+        }
 
         /**
          * @brief Add a triangle to your draw queue
@@ -301,36 +339,49 @@ Image cptoimg(cp_image_t i){
 }
 
 int main( void ){
-    std::cout << "Hello World" << std::endl;
-
     const char *appName = "Stones To Bridges"; 
-
     InitWindowSystem( );
     InitGraphicsSystem( appName );
 
     GraphicsWindow wnd(600, 400, appName, Window::CreationFlags::None);
 
     Image cpI = cptoimg(cp_load_png("STB.png"));
-    
     VulkanImage vi(&wnd, cpI.width, cpI.height, (Image::Pixel*)cpI.data);
 
-	std::vector<Vertex> verts;
-    std::vector<uint16_t> inds;
-
-    /* Generate background */
+    /* =====(Generate Map)===== */
+    ZE::Visual::DrawQueue MapDQ = {
+        std::vector<Vertex>(),
+        std::vector<uint16_t>(),
+        nullptr, nullptr
+    };
+    // Ground
     ZE::DataStructures::Grid bgGrid( 25, 25, 1.0f );
     for (uint32_t y = 0; y < bgGrid.GetSize().y; ++y){
         for (uint32_t x = 0; x < bgGrid.GetSize().x; ++x){
             ZE::Visual::AddQuad(
                 bgGrid.ToBox2D(x, y),
                 {0.0f, 0.0, 0.25f, 0.25f },
-                0, 0, verts, inds
+                0, 0, MatrixRotateX( PI/2.0f ),
+                MapDQ.verts, MapDQ.inds
             );
         }
     }
-
-    ZE::Visual::DrawQueue dq = ZE::Visual::CreateDrawQueue(&wnd, verts, inds, 0, 0);
-
+    // Trees
+    ZE::Visual::AddQuad(
+        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
+        0, 0, MatrixTranslate(3, -0.5, -12.0),
+        MapDQ.verts, MapDQ.inds
+    );
+    ZE::Visual::AddQuad(
+        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
+        0, 0, MatrixTranslate(2, -0.5, -10.0),
+        MapDQ.verts, MapDQ.inds
+    );
+    MapDQ = ZE::Visual::CreateDrawQueue(
+        &wnd, MapDQ.verts, MapDQ.inds,
+        0, 0
+    );
+    
     ZE::Visual::DrawQueue FellaDQ { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
     ZE::Visual::AddQuad(
         (Box2D){0, 0, 2, 2}, (Box2D){0.75, 0.0, 0.25, 0.25},
@@ -338,20 +389,6 @@ int main( void ){
     );
     FellaDQ = ZE::Visual::CreateDrawQueue(
         &wnd, FellaDQ.verts, FellaDQ.inds,
-        0, 0
-    );
-
-    ZE::Visual::DrawQueue TreeDQ { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
-    ZE::Visual::AddQuad(
-        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
-        0, 2, TreeDQ.verts, TreeDQ.inds
-    );
-    ZE::Visual::AddQuad(
-        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
-        0, 3, TreeDQ.verts, TreeDQ.inds
-    );
-    TreeDQ = ZE::Visual::CreateDrawQueue(
-        &wnd, TreeDQ.verts, TreeDQ.inds,
         0, 0
     );
     
@@ -363,16 +400,10 @@ int main( void ){
     
     std::vector<MVP> mvps = {
         {
-            MatrixRotateX( PI/2.0f ),
+            MatrixIdentity()
         },
         {
             MatrixTranslate(0, -0.5, -10.0),
-        },
-        {
-            MatrixTranslate(3, -0.5, -12.0),
-        },
-        {
-            MatrixTranslate(2, -0.5, -10.0),
         }
     };
     UniformBuffer ub1( &wnd, mvps.size() );
@@ -387,7 +418,6 @@ int main( void ){
 
     std::cout << "Entering main loop !!!" << std::endl;
 
-    float groundRot = 0.0f;
     float cposx = 0, cposy = 0;
 
     std::vector<Vector3> TreePositions = {
@@ -458,9 +488,8 @@ int main( void ){
         /* =====( GRAPHICS PROCESSING )=====*/
         //////////////////////////////////////
         std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vis = {
-            {dq.vb, dq.ib},
+            {MapDQ.vb, MapDQ.ib},
             {FellaDQ.vb, FellaDQ.ib},
-            {TreeDQ.vb, TreeDQ.ib}
         };
         wnd.DrawIndexed( vis, ub1, vi, cam.GetView() * cam.GetProj() );
         t2 = std::chrono::high_resolution_clock::now();
