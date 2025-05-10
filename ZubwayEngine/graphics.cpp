@@ -138,7 +138,8 @@ VertexBuffer::VertexBuffer( GraphicsWindow *wnd, std::vector<Vertex>& verts, uin
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
-    UpdateMemory(verts.data(), verts.size(), 0);
+    if (verts.size() > 0)
+        UpdateMemory(verts.data(), verts.size(), 0);
 }
 VertexBuffer::~VertexBuffer( ){
     delete vertBuffer;
@@ -211,7 +212,7 @@ uint32_t VertexBuffer::GetSizeofData( void ){
 
 IndexBuffer::IndexBuffer( GraphicsWindow *wnd, uint16_t *data, size_t numI, size_t reserved ) {
     window = wnd;
-    this->reserved = (numI + reserved);
+    this->reserved = std::max(numI, reserved);
 
     iBuffer = new Buffer(
         wnd->GetDevice(), wnd->GetPhysicalDevice(),
@@ -224,7 +225,8 @@ IndexBuffer::IndexBuffer( GraphicsWindow *wnd, uint16_t *data, size_t numI, size
     );
 
     numInds = numI;
-    UpdateMemory( data, numI, 0 );
+    if (numInds > 0)
+        UpdateMemory( data, numI, 0 );
 }
 IndexBuffer::~IndexBuffer(){
 }
