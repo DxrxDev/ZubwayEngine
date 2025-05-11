@@ -1,12 +1,13 @@
+#include <cmath>
 #include <cstdint>
+#include <ctime>
 #include <iostream>
 #include <limits>
 //#include <memory> Currently unused
 #include <vector>
 #include <cstring>
 #include <chrono>
-
-#include <stdlib.h>
+#include <cstdlib>
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
@@ -26,9 +27,25 @@ float millisecondsSinceLastFrame;
 
 #define MAX_TRANSFORMS 1024
 
-
 namespace ZE {
     namespace Visual {
+        struct TextureMap{
+            uint32_t numx, numy;
+
+        };
+        Box2D TextureMapToBox2D(TextureMap tm, uint32_t x, uint32_t y){
+            float
+                width = (1.0f / (float)tm.numx), 
+                height = (1.0f / (float)tm.numy)
+            ;
+            return (Box2D){
+                x * width, y * height,
+                width, height
+            };
+        }
+
+
+
         struct DrawQueue {
             std::vector<Vertex>   verts;
             std::vector<uint16_t> inds;
@@ -47,12 +64,9 @@ namespace ZE {
          * @param ir 
          * @return DrawQueue 
          */
-        DrawQueue CreateDrawQueue(GraphicsWindow *wnd, std::vector<Vertex>& verts, std::vector<uint16_t>& inds, size_t vr, size_t ir){
-            return (DrawQueue){
-                verts, inds,
-                new VertexBuffer( wnd, verts, vr ),
-                new IndexBuffer( wnd, inds.data(), inds.size(), ir )
-            };
+        void CreateDrawQueue(GraphicsWindow *wnd, DrawQueue& dq, size_t vr, size_t ir){
+            dq.vb = new VertexBuffer( wnd, dq.verts, vr );
+            dq.ib = new IndexBuffer( wnd, dq.inds.data(), dq.inds.size(), ir );
         }
         void FreeDrawQueue( DrawQueue& dq ){
             if (dq.vb)
@@ -326,7 +340,47 @@ namespace ZE {
                 uint32_t w, h;
                 float sx, sy;
         };
+
+        template<size_t size>
+        class IDManager{
+        public:
+            IDManager(){
+                if (size % 8)
+                    Error() << "IDManager: size must be a multiple of 8...";
+                memset(ids, 0, size/8);
+            }
+            uint64_t GenerateID(){
+                for (uint64_t i = 0; i < size; ++i){
+                    if (!ids[i]){
+                        ids[i] = 1;
+                        return i;
+                    }
+                }
+                Error() << "IDManager: No IDs left...";
+                return std::numeric_limits<uint64_t>::max();
+            }
+            bool RemoveID(uint64_t id){
+                if (!ids[id]){
+                    return 0;
+                }
+                ids[id] = 0;
+                return 1;
+            }
+            void Reset(){
+                memset(ids, 0, size/8);
+            }
+
+        private:
+            bool ids[size];
+        };
     };
+};
+
+void ResetRandom( ){
+    srand(time(nullptr));
+}
+double GetRandom(  ){
+    return (double)rand() / ((double)RAND_MAX / 1000.0) ;
 };
 
 
@@ -339,6 +393,7 @@ Image cptoimg(cp_image_t i){
 }
 
 int main( void ){
+    ResetRandom();
     const char *appName = "Stones To Bridges"; 
     InitWindowSystem( );
     InitGraphicsSystem( appName );
@@ -348,11 +403,16 @@ int main( void ){
     Image cpI = cptoimg(cp_load_png("STB.png"));
     VulkanImage vi(&wnd, cpI.width, cpI.height, (Image::Pixel*)cpI.data);
 
+    ZE::DataStructures::IDManager<1024> transformIDs;
+    uint64_t
+        mapTrsID = transformIDs.GenerateID(),
+        phillaTrsID = transformIDs.GenerateID()
+    ;
+    
     /* =====(Generate Map)===== */
     ZE::Visual::DrawQueue MapDQ = {
         std::vector<Vertex>(),
-        std::vector<uint16_t>(),
-        nullptr, nullptr
+        std::vector<uint16_t>()
     };
     // Ground
     ZE::DataStructures::Grid bgGrid( 25, 25, 1.0f );
@@ -360,37 +420,51 @@ int main( void ){
         for (uint32_t x = 0; x < bgGrid.GetSize().x; ++x){
             ZE::Visual::AddQuad(
                 bgGrid.ToBox2D(x, y),
-                {0.0f, 0.0, 0.25f, 0.25f },
-                0, 0, MatrixRotateX( PI/2.0f ),
+                ZE::Visual::TextureMapToBox2D({4, 4}, 0, 0),
+                0, mapTrsID, MatrixRotateX( PI/2.0f ),
                 MapDQ.verts, MapDQ.inds
             );
         }
     }
     // Trees
     ZE::Visual::AddQuad(
-        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
-        0, 0, MatrixTranslate(3, -0.5, -12.0),
+        (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({4, 4}, 1, 0),
+        0, mapTrsID, MatrixTranslate(3, -0.5, -12.0),
         MapDQ.verts, MapDQ.inds
     );
     ZE::Visual::AddQuad(
-        (Box2D){0, 0, 1, 1}, (Box2D){0.25, 0.0, 0.25, 0.25},
-        0, 0, MatrixTranslate(2, -0.5, -10.0),
+        (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({4, 4}, 1, 0),
+        0, mapTrsID, MatrixTranslate(2, -0.5, -10.0),
         MapDQ.verts, MapDQ.inds
     );
-    MapDQ = ZE::Visual::CreateDrawQueue(
-        &wnd, MapDQ.verts, MapDQ.inds,
+    ZE::Visual::CreateDrawQueue(
+        &wnd, MapDQ,
         0, 0
     );
     
     ZE::Visual::DrawQueue FellaDQ { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
     ZE::Visual::AddQuad(
-        (Box2D){0, 0, 2, 2}, (Box2D){0.75, 0.0, 0.25, 0.25},
-        0, 1, FellaDQ.verts, FellaDQ.inds
+        (Box2D){0, 0, 2, 2}, (Box2D)ZE::Visual::TextureMapToBox2D({4, 4}, 3, 0),
+        0, phillaTrsID, FellaDQ.verts, FellaDQ.inds
     );
-    FellaDQ = ZE::Visual::CreateDrawQueue(
-        &wnd, FellaDQ.verts, FellaDQ.inds,
+    ZE::Visual::CreateDrawQueue(
+        &wnd, FellaDQ,
         0, 0
     );
+    
+    ZE::Visual::DrawQueue ApplesDQ {std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr}; 
+    ZE::Visual::CreateDrawQueue(&wnd, ApplesDQ, 4, 6);
+
+    uint32_t AppleTransformID = transformIDs.GenerateID();
+    ZE::Visual::AddQuad(
+        {0, 0, 3, 3}, ZE::Visual::TextureMapToBox2D({4, 4}, 0, 1),
+        0, AppleTransformID, MatrixTranslate(-1, -0.5, -10),
+        ApplesDQ.verts, ApplesDQ.inds
+    );
+    
+    double randomNum = GetRandom(); // Random number between 0 .. 1000
+
+
     
     ZE::Camera::ProjectionCamera cam(
         PI / 3.0,
@@ -404,6 +478,9 @@ int main( void ){
         },
         {
             MatrixTranslate(0, -0.5, -10.0),
+        },
+        {
+            MatrixIdentity()
         }
     };
     UniformBuffer ub1( &wnd, mvps.size() );
@@ -462,6 +539,11 @@ int main( void ){
             cposx += 0.1;
         }
 
+        if (wnd.IsPressed('1')){
+            ApplesDQ.vb->UpdateMemory(ApplesDQ.verts.data(), 4, 0);
+            ApplesDQ.ib->UpdateMemory(ApplesDQ.inds.data(), 6, 0);
+        }
+
         // Find closest tree
         int64_t indexOfClosestTree = -1;
         float closestTreeDist = std::numeric_limits<float>::max();
@@ -478,9 +560,21 @@ int main( void ){
             }
         }
 
-        
+        Vector3 tp = TreePositions[indexOfClosestTree];
+        float
+            dx = tp.x - phillaPos.x,
+            dz = tp.z - phillaPos.z
+        ;
+        float len = (dx * dx) + (dz * dz);
+        if (len > 0){
+            len = sqrt(len);
+            dx /= len * 100;
+            dz /= len * 100;
+        }
+        phillaPos = Vector3Add(phillaPos, {dx, 0, dz});
+
         cam.SetPos((Vector3){cposx, -5.0, cposy});
-        mvps[1].model = MatrixTranslate(phillaPos.x, phillaPos.y, phillaPos.z);
+        mvps[phillaTrsID].model = MatrixTranslate(phillaPos.x, phillaPos.y, phillaPos.z);
 
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
         
@@ -490,6 +584,7 @@ int main( void ){
         std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vis = {
             {MapDQ.vb, MapDQ.ib},
             {FellaDQ.vb, FellaDQ.ib},
+            {ApplesDQ.vb, ApplesDQ.ib},
         };
         wnd.DrawIndexed( vis, ub1, vi, cam.GetView() * cam.GetProj() );
         t2 = std::chrono::high_resolution_clock::now();
