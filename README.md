@@ -15,10 +15,23 @@ Engine source files
 ### Lua build system
 Something new im trying out, CBA with CMake and Premake so im making
 Dobuild as a side side project.
-```
+
+```sh
 # on linux
 USAGE:
-  build.lua <all|wingfx|app|shaders>
+  lua build.lua <all|wingfx|logix|gfx|app|shaders|run> # order matters !! 'run' should almost always be last
+
+  all:     build all available targets
+  wingfx:  build all window and vulkan related files
+  logix:   build all general ZE abstractions
+  gfx:     build all ZE graphical abstractions
+  app:     build your app
+  shaders: build your shaders
+
+  run:     run your app
+
+  example:
+    lua build.lua app shaders run # this rebuilds the app and shaders, then runs the updated app
 ```
 
 # Dependancies
@@ -40,11 +53,13 @@ USAGE:
 
 # Whats in the app folder?
 
-Im making a game called "Stones to Bridges". It will be a game inpired by spore and crusader kinds 3.
+Im making a game called "Stones to Bridges". It will be a game mainly inpired by spore and crusader kinds 3.
 
-You will be able to lead your tribe from humble beginnings in the stone age, to rule
-your map with any rhetoric you want !!
+Guide your civilisation from the stone age to a sophisticated society.
+Starting with basic resources and a small tribe, you will be able to discover new cultural and technological
+innovations to shape the world as you see fit.
+Will you be merciful, cruel, or just a passive observer?
 
 Scope is still being planned up
 
-![Picture of Stones to Bridges](README.d/tree.png)
+![Picture of Stones to Bridges](README.d/basicmap.png)
