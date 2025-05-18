@@ -5,6 +5,8 @@
 #include "graphics.hpp"
 #include "error.hpp"
 #include "box2D.hpp"
+#include "thing.hpp"
+#include "gfx.hpp"
 
 #include "cute_png.h"
 

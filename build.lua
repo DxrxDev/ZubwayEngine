@@ -8,7 +8,7 @@ platform = {
 }
 CURRENT_PLATFORM = platform.linux
 
-warngings = {
+warnings = {
 	none = 0,
 	all = 1
 }
@@ -85,8 +85,8 @@ function CreateCommandInter( proj )
 			ret[i] = ret[i] .. "-D_PLATFORM_LINUX "
 		end
 
-		if proj.warngings ~= nil then
-			if proj.warngings == warngings.all then
+		if proj.warnings ~= nil then
+			if proj.warnings == warnings.all then
 				ret[i] = ret[i] .. " -Wall "
 			end
 		end
@@ -148,14 +148,26 @@ end
 print "Starting build process..."
 
 wingfx = CreateProject( "wingfx", "out/int", "inter" )
-wingfx.files ={
+wingfx.files = {
 	"ZubwayEngine/window.cpp",
 	"ZubwayEngine/graphics.cpp",
 	"ZubwayEngine/box2D.cpp",
 	"ZubwayEngine/raymath.cpp",
 	"ZubwayEngine/cute_png.cpp"
 }
-wingfx.warngings = warngings.all
+wingfx.warnings = warnings.all
+
+logix = CreateProject( "logix", "out/int", "inter" )
+logix.files = {
+	"ZubwayEngine/thing.cpp"
+}
+logix.warnings = warnings.all
+
+gfx = CreateProject( "gfx", "out/int", "inter" )
+gfx.files = {
+	"ZubwayEngine/gfx.cpp"
+}
+gfx.warnings = warnings.all
 
 app = CreateProject( "app", "out/int", "inter" )
 app.files = {
@@ -164,7 +176,7 @@ app.files = {
 app.includedirs = {
 	"ZubwayEngine"
 }
-app.warngings = warngings.all
+app.warnings = warnings.all
 
 
 
@@ -179,10 +191,16 @@ for i = 1, #listofobjs do
 	game.files[i+offset] = listofobjs[i]
 end
 
+listofobjs = getobjs(gfx)
+offset = #game.files
+for i = 1, #listofobjs do
+	game.files[i+offset] = listofobjs[i]
+end
+
 game.libraries = {
 	"dl", "m", "xcb", "xcb-icccm", "xcb-keysyms", "vulkan"
 }
-game.warngings = warngings.all
+game.warnings = warnings.all
 
 vertshader = CreateProject( "vert", "out", "shader" )
 vertshader.files = {
@@ -202,6 +220,8 @@ for i = 1, #arg do
 		RunProject( wingfx )
 		RunProject( app )
 		RunProject( game )
+		RunProject( logix )
+		RunProject( gfx )
 		RunProject( vertshader )
 		RunProject( fragshader )
 	elseif arg[i] == "wingfx" then
@@ -210,6 +230,8 @@ for i = 1, #arg do
 	elseif arg[i] == "app" then
 		RunProject( app )
 		RunProject( game )
+	elseif arg[i] == "logix" then
+		RunProject( logix )
 	elseif arg[i] == "shaders" then
 		RunProject( vertshader )
 		RunProject( fragshader )

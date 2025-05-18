@@ -4,6 +4,7 @@
 #include "raymath.h"
 #include "error.hpp"
 #include "window.hpp"
+#include "box2D.hpp"
 #include <vulkan/vulkan.h>
 
 #include <vector>
