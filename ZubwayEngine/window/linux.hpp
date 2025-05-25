@@ -2,11 +2,73 @@
 #include <xcb/xproto.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
+
+#include <vector>
+#include <cstring>
+
 xcb_connection_t *xcb_conn;
 xcb_screen_t *xcb_screen;
 
 #include "../error.hpp"
 
+#if !defined(__WINDOW_HPP)
+
+enum class WindowEventType {
+    Key, MouseClk, MouseMove
+};
+#define NUMBER_MOUSE_BUTTONS 3
+enum class MouseButton {
+    Left, Middle, Right
+};
+struct WindowEvent {
+    WindowEventType type;
+    struct Key {
+        char key;
+        bool pressed;
+        bool shift, control;
+    };
+    struct MouseClk {
+        MouseButton mb;
+        bool pressed;
+    };
+    struct MouseMove {
+        float x, y;
+        float rootx, rooty;
+    };
+    struct VisChange{
+        bool visable;
+    };
+    union {
+        Key       key;
+        MouseClk  mc;
+        MouseMove mm;
+        VisChange vc;
+    };
+};
+class Window{
+public:
+    enum CreationFlags{
+        None = 0x0,
+        Resizable = 0x1
+    };
+    Window(uint32_t width, uint32_t height, const char *title, CreationFlags flag);
+    ~Window();
+    
+    std::vector<WindowEvent> GetEvents( void );
+    bool IsRunning( void );
+    bool IsPressed( char c );
+    bool IsPressed( MouseButton mb );
+
+    void *GetWindowHandle( void );
+private:
+    bool keys[UINT8_MAX];
+    bool mouse[NUMBER_MOUSE_BUTTONS];
+    class WindowImpl;
+    WindowImpl *implementation;
+};
+
+#endif
+    
 void InitWindowSystem( void ){
     xcb_conn = xcb_connect(NULL, NULL);
     if (xcb_connection_has_error(xcb_conn)){
@@ -136,8 +198,9 @@ public:
 
                 case XCB_KEY_PRESS:{
                     xcb_key_press_event_t e = *(xcb_key_press_event_t *)event;
+                    
                     xcb_keysym_t ks = xcb_key_symbols_get_keysym(symbols, e.detail, 0);
-
+                    
                     ret.push_back((WindowEvent){
                         .type = WindowEventType::Key,
                         (WindowEvent::Key){

@@ -4,7 +4,6 @@
 #include <iostream>
 #include <limits>
 //#include <memory> Currently unused
-#include <queue>
 #include <vector>
 #include <cstring>
 #include <chrono>
@@ -73,7 +72,7 @@ int main( void ){
                     for (uint32_t x = 0; x < bgGrid.GetSize().x; ++x){
                         ZE::Visual::AddQuad(
                             bgGrid.ToBox2D(x, y),
-                            ZE::Visual::TextureMapToBox2D({8, 8}, 0, 0),
+                            ZE::Visual::TextureMapToBox2D({8, 8}, 0, 2),
                             0, trsid, MatrixRotateX( PI/2.0f ),
                             dq.verts, dq.inds
                         );
@@ -87,38 +86,55 @@ int main( void ){
         
             MVP *trans;
             ZE::Visual::DrawQueue dq;
-        };
-        
+    };
+
     Map map(0, mvps.data());
 
     class Trees{
     public:
         Trees(MVP *mvps) : mvps(mvps){
             numtrees = 0;
-            maxnumtrees = (0xff + 1);
+            maxnumtrees = 50;
             dq = { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
             ZE::Visual::CreateDrawQueue(
                 mainWnd, dq,
-                4 * 0xff, 6 * 0xff
+                4 * maxnumtrees, 6 * maxnumtrees
             );
         }
         const char *AddTree(Vector3 pos){
             uint64_t treeid = trees.GenerateID();
-            treestates.push((state){treeid, 0.0, 0.0, pos});
+            treestates.push_back((state){treeid, 0.0, 0.0, pos});
             ZE::Visual::AddQuad(
-                (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 5, 0),
+                (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 4, 0),
                 0, 0, MatrixTranslate(pos.x, pos.y, pos.z),
                 dq.verts, dq.inds
             );
-            dq.vb->UpdateMemory(dq.verts.data(), dq.verts.size(), 0);
+            std::vector<Vertex> bug;
+            for (int i = dq.verts.size() - 4; i < dq.verts.size(); ++i){
+                bug.push_back(dq.verts[i]);
+            }
+
+            dq.vb->UpdateMemory(bug.data(), 4, treeid * 4);
             dq.ib->UpdateMemory(dq.inds.data(), dq.inds.size(), 0);
 
             return nullptr;
         }
+        void RemoveTree(uint64_t id){
+            treestates.erase(treestates.begin() + id);
+        }
         void Update(){
-            state& s = treestates.front();
-            while (true){
-                break;
+            for (state& s: treestates){
+                s.age += 1;
+                if (s.age == (60 * 5)){
+                    std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
+                    ZE::Visual::AddQuad(
+                        (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 5, 0),
+                        0, 0, MatrixTranslate(s.pos.x, s.pos.y, s.pos.z),
+                        updatedsprite, _
+                    );
+                    const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
+                    printf("updated id num %lu, offsetval: %lu|| %s\n", s.id, 4 * s.id, a);
+                }
             }
         }
 
@@ -129,128 +145,117 @@ int main( void ){
             Vector3 pos;
         };
 
-        uint8_t maxnumtrees;
-        uint8_t numtrees;
+        size_t maxnumtrees;
+        size_t numtrees;
         ZE::DataStructures::IDManager<0xff + 1> trees;
-        std::queue<state> treestates;
+        std::vector<state> treestates;
 
         ZE::Visual::DrawQueue dq;
         ZE::DataStructures::IDManager<1024> *idman;
         MVP *mvps;
     };
     Trees trees(mvps.data());
-    trees.AddTree(Vector3{3, -0.5, -12.0});
-    trees.AddTree(Vector3{2, -0.5, 10.0});
-    trees.AddTree(Vector3{5, -0.5, -3.0});
-    trees.AddTree(Vector3{-5, -0.5, 2.0});
-    trees.AddTree(Vector3{2, -0.5, -5.0});
-    trees.AddTree(Vector3{-7, -0.5, -10.0});
-    trees.AddTree(Vector3{0, -0.5, 4.0});
+    uint32_t numtrees = 50;
+    for (uint32_t i = 0; i < numtrees; ++i){
+        trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f});
+    }
 
     class Fella {
-        public:
-            Fella( const char *name, ZE::DataStructures::IDManager<1024> *idman, MVP *mvps ): name(name), idman(idman), mvps(mvps), energy(100.0){
-                trsid = idman->GenerateID();
-                dq = { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
-                ZE::Visual::AddQuad(
-                    (Box2D){0, 0, 2, 2}, (Box2D)ZE::Visual::TextureMapToBox2D({8, 8}, 5, 3),
-                    0, trsid, dq.verts, dq.inds
-                );
-                ZE::Visual::CreateDrawQueue(
-                    mainWnd, dq,
-                    0, 0
-                );
-                pos = {0, -0.5, -10.0};
-                targetPos = (Vector3){ ((float)GetRandom()/100.0f), -0.5, (float)GetRandom()/100.0f};
-                foodsearching = false;
-            }
-            ~Fella(){
-                idman->RemoveID(trsid);
-                delete dq.vb;
-                delete dq.ib;
-            }
+    public:
+        Fella( const char *name, ZE::DataStructures::IDManager<1024> *idman, MVP *mvps ): name(name), idman(idman), mvps(mvps), energy(100.0){
+            trsid = idman->GenerateID();
+            dq = { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
+            ZE::Visual::AddQuad(
+                (Box2D){0, 0, 2, 2}, (Box2D)ZE::Visual::TextureMapToBox2D({8, 8}, 0, 0),
+                0, trsid, dq.verts, dq.inds
+            );
+            ZE::Visual::CreateDrawQueue(
+                mainWnd, dq,
+                0, 0
+            );
+            pos = {0, -0.5, -10.0};
+            targetPos = (Vector3){ ((float)GetRandom()/100.0f), -0.5, (float)GetRandom()/100.0f};
+            foodsearching = false;
+            showingstamina = false;
+        }
+        ~Fella(){
+            idman->RemoveID(trsid);
+            delete dq.vb;
+            delete dq.ib;
+        }
     
-            void Update( const std::vector<Trees::state>& treestates ){
-                if (energy < 50.0f && foodsearching == false){
-                    foodsearching = true;
-
-                    // Find closest tree
-                    std::vector<Vector3> treepositions;
-                    for (Trees::state s: treestates){
-                        treepositions.push_back(s.pos);
-                    }
-                    int64_t indexOfClosestTree = -1;
-                    float closestTreeDist = std::numeric_limits<float>::max();
-                    for (int i = 0; i < treepositions.size(); ++i){
-                        float cdist = sqrt(
-                            pow(pos.x - treepositions[i].x, 2) + 
-                            pow(pos.y - treepositions[i].y, 2) + 
-                            pow(pos.z - treepositions[i].z, 2)
-                        );
-                    
-                        if (cdist < closestTreeDist){
-                            closestTreeDist = cdist;
-                            indexOfClosestTree = i;
-                        }
-                    }
-                    // move towards the tree
-                    targetPos = treepositions[indexOfClosestTree];
+        void Update( std::vector<WindowEvent> events, std::vector<Trees::state>& treestates ){
+            for (WindowEvent e: events){
+                if (e.type != WindowEventType::Key) continue;
+            }
+            if (energy < 50.0f && foodsearching == false){
+                foodsearching = true;
+                // Find closest tree
+                std::vector<Vector3> treepositions;
+                for (Trees::state s: treestates){
+                    treepositions.push_back(s.pos);
                 }
+                int64_t indexOfClosestTree = -1;
+                float closestTreeDist = std::numeric_limits<float>::max();
+                for (int i = 0; i < treepositions.size(); ++i){
+                    float cdist = sqrt(
+                        pow(pos.x - treepositions[i].x, 2) + 
+                        pow(pos.y - treepositions[i].y, 2) + 
+                        pow(pos.z - treepositions[i].z, 2)
+                    );
                 
-                float
+                    if (cdist < closestTreeDist){
+                        closestTreeDist = cdist;
+                        indexOfClosestTree = i;
+                    }
+                }
+                // move towards the tree
+                targetPos = treepositions[indexOfClosestTree];
+            }
+            
+            float
                 dx = targetPos.x - pos.x,
                 dz = targetPos.z - pos.z
-                ;
-                float len = ((dx * dx) + (dz * dz));
-                len = (float)((uint64_t)(len * 100)) / 100.0;
-
-                printf("omg hiiii %d %f %f %f\n", trsid, targetPos.x, targetPos.z, len);
-                
-                if (len > 0){
-                    len = sqrt(len);
-                    dx /= len * 60;
-                    dz /= len * 60;
-
-                    pos = Vector3Add(pos, {dx, 0, dz});
-
-                    energy -= 5.0 / 60.0;
-
-                    mvps[trsid].model = MatrixTranslate( pos.x, pos.y, pos.z );
-                }
-                else {
-                    targetPos =  (Vector3){ (((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f};
-                    if (foodsearching){
-                        foodsearching = false;
-                        energy = 100.0f;
-                    }
+            ;
+            float len = ((dx * dx) + (dz * dz));
+            len = (float)((uint64_t)(len * 100)) / 100.0;
+            Vector2 v = {dx, dz};
+            v = Vector2Normalize(v) / 60.0f;
+            if (len > 0){
+                len = sqrt(len);
+                dx /= len * 30;
+                dz /= len * 30;
+                pos = Vector3Add(pos, (Vector3){v.x, 0, v.y});
+                energy -= 5.0 / 60.0;
+                mvps[trsid].model = MatrixTranslate( pos.x, pos.y, pos.z );
+            }
+            else {
+                targetPos =  (Vector3){ (((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f};
+                if (foodsearching){
+                    foodsearching = false;
+                    energy = 100.0f;
                 }
             }
+        }
     
-            const char *name;
-            Vector3 pos;
-            Vector3 targetPos;
-            float energy;
-            bool foodsearching;
+        const char *name;
+        Vector3 pos;
+        Vector3 targetPos;
+        float energy;
+        bool foodsearching;
+        bool showingstamina;
     
-            ZE::Visual::DrawQueue dq;
-            ZE::DataStructures::IDManager<1024> *idman;
-            MVP *mvps;
-            uint32_t trsid;
-        };
-        Fella philla( "philla", &transformIDs, mvps.data() );
-        Fella merrin( "merrin", &transformIDs, mvps.data() );
-
-    ZE::Visual::DrawQueue ApplesDQ {std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr}; 
-    ZE::Visual::CreateDrawQueue(&wnd, ApplesDQ, 4, 6);
-
-    uint32_t AppleTransformID = transformIDs.GenerateID();
-    ZE::Visual::AddQuad(
-        {0, 0, 3, 3}, ZE::Visual::TextureMapToBox2D({8, 8}, 4, 1),
-        0, AppleTransformID, MatrixTranslate(-1, -0.5, -10),
-        ApplesDQ.verts, ApplesDQ.inds
-    );
-    
-    ZE::Visual::DrawQueue ProgressBar {std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr};
+        ZE::Visual::DrawQueue dq;
+        ZE::DataStructures::IDManager<1024> *idman;
+        MVP *mvps;
+        uint32_t trsid;
+    };
+    Fella philla( "philla", &transformIDs, mvps.data() );
+    Fella merrin( "merrin", &transformIDs, mvps.data() );
+    Fella cleet( "cleet", &transformIDs, mvps.data() );
+    Fella fueller( "fueller", &transformIDs, mvps.data() );
+   
+    ZE::Visual::DrawQueue ProgressBar { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr};
     uint32_t bartr1 = transformIDs.GenerateID();
     uint32_t bartr2 = transformIDs.GenerateID();
     ZE::Visual::AddQuad(
@@ -273,7 +278,6 @@ int main( void ){
     
     mvps[0] = {MatrixIdentity()};
     mvps[philla.trsid] = {MatrixTranslate(0, -0.5, -10.0)};
-    mvps[AppleTransformID] = {MatrixIdentity()};
     mvps[bartr1] = {MatrixTranslate(0, -0.5, -10.0)};
     mvps[bartr2] = {MatrixTranslate(0, -0.5, -10.0)};
 
@@ -301,6 +305,7 @@ int main( void ){
         for (WindowEvent e : events){
             if (e.type == WindowEventType::Key) {
                 if (e.key.pressed){
+                    
                     switch( e.key.key ){
                     case 'q':{
                         running = false;
@@ -323,11 +328,6 @@ int main( void ){
             cposx += 0.1;
         }
 
-        if (wnd.IsPressed('1')){
-            ApplesDQ.vb->UpdateMemory(ApplesDQ.verts.data(), 4, 0);
-            ApplesDQ.ib->UpdateMemory(ApplesDQ.inds.data(), 6, 0);
-        }
-
         cam.SetPos((Vector3){cposx, -5.0, cposy});
 
         mvps[bartr1].model = MatrixTranslate(philla.pos.x, philla.pos.y - 1.0, philla.pos.z);
@@ -337,19 +337,12 @@ int main( void ){
         ;
         mvps[bartr2].model = MatrixScale(philla.energy / 100.0, 1, 1) * MatrixTranslate(philla.pos.x - bartr2offset, philla.pos.y - 1.0, philla.pos.z);
 
-        std::vector<Trees::state> treestates;
-        std::queue<Trees::state> treesCopy = trees.treestates;
-        while (true){
-            Trees::state s = treesCopy.front();
-            treestates.push_back(s);
-            treesCopy.pop();
-            if (treesCopy.size() == 0){    
-                break;
-            }
-        }
+        trees.Update();
 
-        philla.Update( treestates );
-        merrin.Update( treestates );
+        philla.Update( events, trees.treestates );
+        merrin.Update( events, trees.treestates );
+        fueller.Update( events, trees.treestates );
+        cleet.Update( events, trees.treestates );
 
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
         
@@ -359,9 +352,12 @@ int main( void ){
         std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vis = {
             {map.dq.vb, map.dq.ib},
             {trees.dq.vb, trees.dq.ib},
+
             {philla.dq.vb, philla.dq.ib},
             {merrin.dq.vb, merrin.dq.ib},
-            {ApplesDQ.vb, ApplesDQ.ib},
+            {fueller.dq.vb, fueller.dq.ib},
+            {cleet.dq.vb, cleet.dq.ib},
+
             {ProgressBar.vb, ProgressBar.ib},
         };
         wnd.DrawIndexed( vis, ub1, vi, cam.GetView() * cam.GetProj() );
