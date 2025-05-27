@@ -80,6 +80,9 @@ namespace ZE {
             const constexpr size_t GetSize(){
                 return size;
             }
+            const bool operator[](size_t id){
+                return ids[id];
+            };
 
         private:
             bool ids[size];

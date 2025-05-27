@@ -1,3 +1,5 @@
+#include "thing.hpp"
+#include <cstddef>
 #if !defined( __GFX_HPP )
 #define       __GFX_HPP
 
@@ -116,6 +118,16 @@ namespace ZE {
         private:
             Vector2 screenSize;
         };
+    };
+
+    template <size_t size>
+    class SpriteCluster {
+
+    private:
+        Window *wnd;
+        Visual::DrawQueue dq;
+        DataStructures::IDManager<size> idman;
+        DataStructures::IDManager<1024> trsids;
     };
 };
 
