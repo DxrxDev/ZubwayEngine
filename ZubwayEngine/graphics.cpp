@@ -1,6 +1,7 @@
 #include "graphics.hpp"
 #include "error.hpp"
 
+#include <cstdint>
 #include <vulkan/vulkan.h>
 
 #include <optional>
@@ -375,6 +376,14 @@ void UniformBuffer::UpdateMVP( MVP *mvps, uint32_t nmvp, uint32_t offset ){
 void UniformBuffer::UploadMVP( void ){
 }
 
+DepthStencil::DepthStencil( GraphicsWindow *wnd ){
+
+}
+DepthStencil::~DepthStencil(){
+
+}
+
+
 //TextureBuffer::TextureBuffer( GraphicsSystemInfo )
 
 Command::Command( VkDevice device, VkCommandPool cmdpool ){
@@ -505,7 +514,7 @@ GraphicsWindow::~GraphicsWindow(){
     vkDestroyCommandPool( device, cmdpool, nullptr );    
     vkDestroyPipeline( device, pipeline, nullptr );
 
-    vkDestroySurfaceKHR( vk_inst, surface, nullptr );
+    //vkDestroySurfaceKHR( vk_inst, surface, nullptr );
 }
 
 VkSurfaceKHR GraphicsWindow::GetSurface( ){
@@ -659,7 +668,7 @@ int32_t GraphicsWindow::CreateSwapchain( ){
 }
 
 int32_t GraphicsWindow::CreateRenderPassAndFrameBuffers(){
-    VkAttachmentDescription colorAttachment = {
+    VkAttachmentDescription colorAttachmentDes = {
 		.flags = 0,
     	.format = vk_format.format,
     	.samples = VK_SAMPLE_COUNT_1_BIT,
@@ -670,35 +679,51 @@ int32_t GraphicsWindow::CreateRenderPassAndFrameBuffers(){
     	.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     	.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	};
-
-
     VkAttachmentReference colorAttachmentRef = {
-    	colorAttachmentRef.attachment = 0, // Index of the color attachment
-    	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    	.attachment = 0, // Index of the color attachment
+    	.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	};
+
+    VkAttachmentDescription dsAttachmentDes = {
+        .flags = 0,
+        .format = VK_FORMAT_D32_SFLOAT_S8_UINT,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    };
+    VkAttachmentReference dsAttachmentRef = {
+        .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    };
 
     VkSubpassDescription subpass = {
     	.flags = 0,
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
     	.colorAttachmentCount = 1,
-    	.pColorAttachments = &colorAttachmentRef
+    	.pColorAttachments = &colorAttachmentRef,
+        .pDepthStencilAttachment = &dsAttachmentRef
 	};
 
     VkSubpassDependency dependency = {
     	.srcSubpass = VK_SUBPASS_EXTERNAL,
     	.dstSubpass = 0,
-    	.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-    	.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    	.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+    	.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
     	.srcAccessMask = 0,
-    	.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+    	.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
 	};
 
+    VkAttachmentDescription attachmentdescriptions[] = {colorAttachmentDes, dsAttachmentDes};
     VkRenderPassCreateInfo renderPassInfo = {
     	.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
-    	.attachmentCount = 1,
-    	.pAttachments = &colorAttachment,
+    	.attachmentCount = 2,
+    	.pAttachments = attachmentdescriptions,
     	.subpassCount = 1,
     	.pSubpasses = &subpass,
     	.dependencyCount = 1,
@@ -707,15 +732,91 @@ int32_t GraphicsWindow::CreateRenderPassAndFrameBuffers(){
 
     vkCreateRenderPass(device, &renderPassInfo, nullptr, &rp);
 
+    VkResult res;
+
+    uint32_t queuefamilyindex = GetGraphicsQueueFamily();
+    VkImageCreateInfo ici = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = VK_FORMAT_D32_SFLOAT_S8_UINT,
+        .extent = (VkExtent3D){
+            .width = GetExtent2().width,
+            .height = GetExtent2().height,
+            .depth = 1
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 1,
+        .pQueueFamilyIndices = &queuefamilyindex,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+    };
+    res = vkCreateImage( device, &ici, nullptr, &dsimage );
+    if (res != VK_SUCCESS)
+        Error() << "couldnt create image";
+
+    VkMemoryRequirements memoryreq;
+    vkGetImageMemoryRequirements( device, dsimage, &memoryreq );
+    printf("man fucking goffy ass %lu\n", memoryreq.size);
+    VkMemoryAllocateInfo allocInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memoryreq.size,
+        .memoryTypeIndex = Buffer::findMemoryType(
+            GetPhysicalDevice(),
+            memoryreq.memoryTypeBits, 
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        )
+    };
+    
+    if (vkAllocateMemory( device, &allocInfo, nullptr, &dsmemory) != VK_SUCCESS) {
+        Error() << "Balls";
+    }
+    res = vkBindImageMemory(device, dsimage, dsmemory, 0);
+    if (res != VK_SUCCESS)
+        Error() << "hate life";
+
+
+    VkImageViewCreateInfo ivci = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = dsimage,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_D32_SFLOAT_S8_UINT,
+        .components = {
+            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .a = VK_COMPONENT_SWIZZLE_IDENTITY
+        },
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+    res = vkCreateImageView( device, &ivci, nullptr, &dsimageview );
+    if (res != VK_SUCCESS)
+        Error() << "couldnt create image view";
+
     frames = std::vector<VkFramebuffer>(images.size());
     for (uint32_t i = 0; i < frames.size(); ++i){
+        VkImageView views[2] = {
+            *(images.data() + i),
+            dsimageview
+        };
         VkFramebufferCreateInfo fci = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
             .renderPass = rp,
-            .attachmentCount = 1,
-            .pAttachments = images.data() + i,
+            .attachmentCount = 2,
+            .pAttachments = views,
             .width = ex.width,
             .height = ex.height,
             .layers = 1
@@ -918,20 +1019,45 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .sampleShadingEnable = VK_FALSE
     };
 
-    VkPipelineColorBlendAttachmentState colBlendAttachment = {
-        .blendEnable = VK_TRUE,
-        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        .colorBlendOp = VK_BLEND_OP_ADD,
-        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .alphaBlendOp = VK_BLEND_OP_ADD,
-        .colorWriteMask = (
-            VK_COLOR_COMPONENT_R_BIT |
-            VK_COLOR_COMPONENT_G_BIT |
-            VK_COLOR_COMPONENT_B_BIT |
-            VK_COLOR_COMPONENT_A_BIT
-        )
+    VkPipelineDepthStencilStateCreateInfo depthstencilCI = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_TRUE,
+        .front = (VkStencilOpState){
+            .failOp = VK_STENCIL_OP_KEEP,
+            .passOp = VK_STENCIL_OP_REPLACE,
+            .depthFailOp = VK_STENCIL_OP_KEEP,
+            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .compareMask = 0xff,
+            .writeMask = 0xff,
+            .reference = 1,
+        },
+        .back = {},
+        .minDepthBounds = 0.f,
+        .maxDepthBounds = 1.f
+    };
+
+    VkPipelineColorBlendAttachmentState colBlendAttachments[] = {
+        {
+            .blendEnable = VK_TRUE,
+            .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+            .colorBlendOp = VK_BLEND_OP_ADD,
+            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+            .alphaBlendOp = VK_BLEND_OP_ADD,
+            .colorWriteMask = (
+                VK_COLOR_COMPONENT_R_BIT |
+                VK_COLOR_COMPONENT_G_BIT |
+                VK_COLOR_COMPONENT_B_BIT |
+                VK_COLOR_COMPONENT_A_BIT
+            )
+        }
     };
     VkPipelineColorBlendStateCreateInfo plColorBlendingCI = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
@@ -940,8 +1066,8 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .logicOpEnable = VK_FALSE,
         .logicOp = VK_LOGIC_OP_NO_OP,
         .attachmentCount = 1,
-        .pAttachments = &colBlendAttachment,
-        .blendConstants = {1.0f, 1.0f, 1.0f, 1.0f}
+        .pAttachments = colBlendAttachments,
+        .blendConstants = {}//{1.0f, 1.0f, 1.0f, 1.0f}
     };
 
     
@@ -978,8 +1104,8 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .pTessellationState = nullptr, // OPTIONAL
         .pViewportState = &plViewportCI,
         .pRasterizationState = &plRasterizationCI,
-        .pMultisampleState = &multisampleCI, // OPTIONAL
-        .pDepthStencilState = nullptr, // OPTIONAL
+        .pMultisampleState = &multisampleCI,
+        .pDepthStencilState = &depthstencilCI,
         .pColorBlendState = &plColorBlendingCI,
         .layout = pipelineLayout,
         .renderPass = rp,
@@ -1033,7 +1159,10 @@ void GraphicsWindow::BeginRenderPassCommand( VkCommandBuffer presentbuffer, int3
     };
     vkBeginCommandBuffer( presentbuffer, &cbbi );
 
-    VkClearValue clearVal = {{{0, 0, 0, 1}}};
+    VkClearValue clearVal[] = {
+        {.color{0, 0, 0, 1}},
+        {.depthStencil{1.0, 0}}
+    };
     VkRenderPassBeginInfo rpbi = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = nullptr,
@@ -1043,8 +1172,8 @@ void GraphicsWindow::BeginRenderPassCommand( VkCommandBuffer presentbuffer, int3
             .offset = {0, 0},
             .extent = GetExtent2()
         },
-        .clearValueCount = 1,
-        .pClearValues = &clearVal
+        .clearValueCount = 2,
+        .pClearValues = clearVal
     };
     vkCmdBeginRenderPass( presentbuffer, &rpbi, VK_SUBPASS_CONTENTS_INLINE );
     vkCmdBindPipeline( presentbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );

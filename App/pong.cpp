@@ -56,6 +56,8 @@ int main( void ){
     Image cpI = cptoimg(cp_load_png("STB.png"));
     VulkanImage vi(&wnd, cpI.width, cpI.height, (Image::Pixel*)cpI.data);
 
+    DepthStencil sd(&wnd);
+
     ZE::DataStructures::IDManager<1024> transformIDs; transformIDs.GenerateID(); // index 0 will be an identity matrix
     std::vector<MVP> mvps(1024);
 
@@ -123,6 +125,7 @@ int main( void ){
             }
             else if (treeid <= highestid){
                 printf("reuse tree with id %lu\n", treeid);
+                treestates[treeid] = { treeid, age, 0.0, pos };
                 return nullptr;
             }
             highestid = std::max<size_t>(highestid,treeid);
@@ -217,7 +220,7 @@ int main( void ){
                             printf("[RND %d]tree id:%lu can spawn a tree\n", randomNum, s.id);
                             newtreespos.push_back((Vector3){
                                 s.pos.x + (((float)GetRandom() - 500.f)/800.f),
-                                0.5f,
+                                -0.5f,
                                 s.pos.z + (((float)GetRandom() - 500.f)/800.f)
                             });
                         }
@@ -264,7 +267,7 @@ int main( void ){
     Trees trees(mvps.data());
     uint32_t numtrees = 15;
     for (uint32_t i = 0; i < numtrees; ++i){
-        trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 2.0);
+        trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 60 * 4.f);
     }
 
     class Tribe {
@@ -406,7 +409,7 @@ int main( void ){
         std::vector<WindowEvent> events = wnd.GetEvents();
         running = wnd.IsRunning();
 
-        printf( "-(FRAME)-----------------------\n" );
+        //printf( "-(FRAME)-----------------------\n" );
 
         ////////////////////////////
         /* =====(LOCIG STUFF)=====*/

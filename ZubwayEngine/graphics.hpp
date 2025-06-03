@@ -1,3 +1,4 @@
+#include <vulkan/vulkan_core.h>
 #if !defined(__GRAPHICS_H)
 #define      __GRAPHICS_H
 
@@ -172,6 +173,18 @@ private:
     Buffer *tBuffer;
 };
 
+class DepthStencil {
+public:
+    DepthStencil( GraphicsWindow *wnd );
+    ~DepthStencil();
+
+private:
+    GraphicsWindow *window;
+    VkImage image;
+    VkImageView imageview;
+    VkDeviceMemory devicememory;
+};
+
 class Command {
 public:
     Command( VkDevice device, VkCommandPool cmdpool );
@@ -252,6 +265,10 @@ private:
     VkRenderPass               rp;
     std::vector<VkFramebuffer> frames;
     uint32_t                   drawingOn;
+    
+    VkImage                    dsimage;
+    VkImageView                dsimageview;
+    VkDeviceMemory             dsmemory;
 
     VkDescriptorSetLayout      uniformLayout;
     VkDescriptorSetLayout      textureLayout;
