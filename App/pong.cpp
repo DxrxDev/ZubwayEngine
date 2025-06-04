@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <ctime>
@@ -114,24 +115,22 @@ int main( void ){
                 return "tmt";
             }
 
-            Vertex verts[4]; uint16_t inds[6];
-            ZE::Visual::AddQuad(
-                (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 4, 0),
-                (ZE::Visual::TextureModifications)0, 0, MatrixTranslate(pos.x, pos.y, pos.z),
-                verts, inds, treeid * 4
-            );
-    
-            if (nullptr != dq.vb->UpdateMemory(verts, 4, treeid * 4))
-                Error() << "FUCK FUCK FUCK FUCK";
-            if (nullptr != dq.ib->UpdateMemory(inds, 6, treeid * 6))
-                Error() << "SHIT SHIT SHIT SHIT";
-
             if (treeid == treestates.size()){
                 treestates.push_back((state){treeid, age, 0.0, pos});
             }
             else {
                 treestates[treeid] = (state){treeid, age, 0.0, pos};
             }
+
+            Vertex verts[4];
+            ZE::Visual::AddQuad(
+                (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 4, 0),
+                (ZE::Visual::TextureModifications)0, 0, MatrixTranslate(pos.x, pos.y, pos.z),
+                verts, treestates[treeid].inds, treeid * 4
+            );
+    
+            if (nullptr != dq.vb->UpdateMemory(verts, 4, treeid * 4))
+                Error() << "Couldn't update the trees vertex buffer!!";
 
             printf("created tree with id %lu, %lu\n", treeid, trees.GetNumActive());
 
@@ -232,6 +231,26 @@ int main( void ){
             for (uint32_t id: toremove){
                 RemoveTree( id );
             }
+
+            std::sort(
+                treestates.begin(), treestates.end(),
+                [](state a, state b) {
+                    return a.pos.z < b.pos.z;
+                }
+            );
+            std::vector<uint16_t> inds;
+            for (const state& s: treestates){
+                if (!trees[s.id])
+                    continue;
+
+                inds.push_back(s.inds[0]);
+                inds.push_back(s.inds[1]);
+                inds.push_back(s.inds[2]);
+                inds.push_back(s.inds[3]);
+                inds.push_back(s.inds[4]);
+                inds.push_back(s.inds[5]);
+            }
+            dq.ib->UpdateMemory(inds.data(), inds.size(), 0);
         }
         // Fruit LookForFruit(){
             
@@ -242,6 +261,8 @@ int main( void ){
             float age;
             float fruitcycle;
             Vector3 pos;
+
+            uint16_t inds[6];
         };
 
         size_t  maxnumtrees;
