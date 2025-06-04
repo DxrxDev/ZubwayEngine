@@ -218,10 +218,10 @@ end
 for i = 1, #arg do
 	if arg[i] == "all" then
 		RunProject( wingfx )
-		RunProject( app )
-		RunProject( game )
 		RunProject( logix )
+		RunProject( app )
 		RunProject( gfx )
+		RunProject( game )
 		RunProject( vertshader )
 		RunProject( fragshader )
 	elseif arg[i] == "wingfx" then
@@ -232,6 +232,9 @@ for i = 1, #arg do
 		RunProject( game )
 	elseif arg[i] == "logix" then
 		RunProject( logix )
+	elseif arg[i] == "gfx" then
+		RunProject( gfx )
+		RunProject( game )
 	elseif arg[i] == "shaders" then
 		RunProject( vertshader )
 		RunProject( fragshader )

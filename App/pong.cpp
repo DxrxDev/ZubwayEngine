@@ -98,23 +98,13 @@ int main( void ){
     class Trees{
     public:
         Trees(MVP *mvps) : mvps(mvps){
-            highestid = 0;
+            highestid = nullptr;
             maxnumtrees = 100;
             dq = { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
             ZE::Visual::CreateDrawQueue(
                 mainWnd, dq,
                 4 * maxnumtrees, 6 * maxnumtrees
             );
-
-            treestates.push_back((state){});
-            ZE::Visual::AddQuad(
-                (Box2D){0, 0, 0, 0}, ZE::Visual::TextureMapToBox2D({128, 128}, 0, 0),
-                0, 0,
-                dq.verts, dq.inds
-            );
-
-            dq.vb->UpdateMemory( dq.verts.data(), 4, 0 );
-            dq.ib->UpdateMemory( dq.inds.data(), 6, 0 );
         }
         const char *AddTree(Vector3 pos, float age = 0.0f){
             uint64_t treeid = trees.GenerateID();
@@ -123,28 +113,27 @@ int main( void ){
                 trees.RemoveID(treeid);
                 return "tmt";
             }
-            else if (treeid <= highestid){
-                printf("reuse tree with id %lu\n", treeid);
-                treestates[treeid] = { treeid, age, 0.0, pos };
-                return nullptr;
-            }
-            highestid = std::max<size_t>(highestid,treeid);
 
-            treestates.push_back((state){treeid, age, 0.0, pos});
+            Vertex verts[4]; uint16_t inds[6];
             ZE::Visual::AddQuad(
                 (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 4, 0),
-                0, 0, MatrixTranslate(pos.x, pos.y, pos.z),
-                dq.verts, dq.inds
+                (ZE::Visual::TextureModifications)0, 0, MatrixTranslate(pos.x, pos.y, pos.z),
+                verts, inds, treeid * 4
             );
-            std::vector<Vertex> bug;
-            for (int i = dq.verts.size() - 4; i < dq.verts.size(); ++i){
-                bug.push_back(dq.verts[i]);
+    
+            if (nullptr != dq.vb->UpdateMemory(verts, 4, treeid * 4))
+                Error() << "FUCK FUCK FUCK FUCK";
+            if (nullptr != dq.ib->UpdateMemory(inds, 6, treeid * 6))
+                Error() << "SHIT SHIT SHIT SHIT";
+
+            if (treeid == treestates.size()){
+                treestates.push_back((state){treeid, age, 0.0, pos});
+            }
+            else {
+                treestates[treeid] = (state){treeid, age, 0.0, pos};
             }
 
-            dq.vb->UpdateMemory(bug.data(), 4, treeid * 4);
-            dq.ib->UpdateMemory(dq.inds.data(), dq.inds.size(), 0);
-
-            printf("created tree with id %lu, %lu\n", treeid, trees.GetSize());
+            printf("created tree with id %lu, %lu\n", treeid, trees.GetNumActive());
 
             return nullptr;
         }
@@ -255,8 +244,8 @@ int main( void ){
             Vector3 pos;
         };
 
-        size_t maxnumtrees;
-        size_t highestid;
+        size_t  maxnumtrees;
+        size_t *highestid;
         ZE::DataStructures::IDManager<0xff + 1> trees;
         std::vector<state> treestates;
 

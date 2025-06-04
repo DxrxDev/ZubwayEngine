@@ -185,6 +185,72 @@ namespace ZE {
             return nullptr;
         }
 
+        const char *AddQuad(
+            Box2D rect, Box2D texture,
+            TextureModifications texmods, uint32_t transformID, Matrix mat,
+            Vertex verts[], uint16_t inds[], size_t indsoffset
+        ){
+            if (transformID >= 1024)
+                return "ZE::Visual::AddQuad(): transformID out of bounds!";
+            float hw = rect.w / 2.0f, hh = rect.h / 2.0f;
+
+            Vector2 texcorners[4] = {
+                {texture.x, texture.y},
+                {texture.x + texture.w, texture.y},
+                {texture.x, texture.y + texture.h},
+                {texture.x + texture.w, texture.y + texture.h}
+            };
+
+            uint64_t texrot[4];
+            texrot[0] = 0;
+            texrot[1] = 1;
+            texrot[2] = 2;
+            texrot[3] = 3;
+
+            if (texmods & TextureModifications::ROT_CW_1){
+                texrot[0] = 2;
+                texrot[1] = 0;
+                texrot[2] = 3;
+                texrot[3] = 1;
+            }
+            
+            if (texmods & TextureModifications::ROT_CW_2){
+                texrot[0] = 3;
+                texrot[1] = 2;
+                texrot[2] = 1;
+                texrot[3] = 0;
+            }
+
+            if (texmods & TextureModifications::ROT_CW_3){
+                texrot[0] = 1;
+                texrot[1] = 3;
+                texrot[2] = 0;
+                texrot[3] = 2;
+                
+            }
+        
+            Vector3 v1 = (Vector3){rect.x - hw, rect.y - hh, 0} * mat;
+            Vector3 v2 = (Vector3){rect.x + hw, rect.y - hh, 0} * mat;
+            Vector3 v3 = (Vector3){rect.x - hw, rect.y + hh, 0} * mat;
+            Vector3 v4 = (Vector3){rect.x + hw, rect.y + hh, 0} * mat;
+            verts[0] = {v1, texcorners[texrot[0]], transformID}; //TL
+            verts[1] = {v2, texcorners[texrot[1]], transformID}; //TR
+            verts[2] = {v3, texcorners[texrot[2]], transformID}; //BL
+            verts[3] = {v4, texcorners[texrot[3]], transformID}; //BR
+
+
+            inds[0] = indsoffset + 0;
+            inds[1] = indsoffset + 3;
+            inds[2] = indsoffset + 2;
+
+            inds[3] = indsoffset + 0;
+            inds[4] = indsoffset + 1;
+            inds[5] = indsoffset + 3;
+
+            return nullptr;
+        }
+
+
         /**
          * @brief Add a triangle to your draw queue
          * @param points 

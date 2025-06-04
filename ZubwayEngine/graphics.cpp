@@ -762,7 +762,6 @@ int32_t GraphicsWindow::CreateRenderPassAndFrameBuffers(){
 
     VkMemoryRequirements memoryreq;
     vkGetImageMemoryRequirements( device, dsimage, &memoryreq );
-    printf("man fucking goffy ass %lu\n", memoryreq.size);
     VkMemoryAllocateInfo allocInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = memoryreq.size,

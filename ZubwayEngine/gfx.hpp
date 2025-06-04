@@ -11,6 +11,14 @@ namespace ZE {
         struct TextureMap{
             uint32_t numx, numy;
         };
+        enum TextureModifications {
+            FLIP_X   = 0b0000'00001,
+            FLIP_Y   = 0b0000'00010,
+            FLIP_Z   = 0b0000'00100,
+            ROT_CW_1 = 0b0000'01000,
+            ROT_CW_2 = 0b0000'10000,
+            ROT_CW_3 = 0b0001'00000 
+        };
         Box2D TextureMapToBox2D(TextureMap tm, uint32_t x, uint32_t y);
 
         struct DrawQueue {
@@ -72,6 +80,12 @@ namespace ZE {
             Box2D rect, Box2D texture,
             uint32_t texRot, uint32_t transformID, Matrix mat,
             std::vector<Vertex>& verts, std::vector<uint16_t>& inds
+        );
+
+        const char *AddQuad(
+            Box2D rect, Box2D texture,
+            TextureModifications texmods, uint32_t transformID, Matrix mat,
+            Vertex verts[], uint16_t inds[], size_t indsoffset
         );
 
         /**

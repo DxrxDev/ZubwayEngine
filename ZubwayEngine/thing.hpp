@@ -60,7 +60,7 @@ namespace ZE {
             uint64_t GenerateID(){
                 for (uint64_t i = 0; i < size; ++i){
                     if (!ids[i]){
-                        ids[i] = 1;
+                        ids[i] = 1; numactive++;
                         return i;
                     }
                 }
@@ -71,11 +71,14 @@ namespace ZE {
                 if (!ids[id]){
                     return 0;
                 }
-                ids[id] = 0;
+                ids[id] = 0; numactive--;
                 return 1;
             }
             void Reset(){
                 memset(ids, 0, size/8);
+            }
+            size_t GetNumActive( void ){
+                return numactive;
             }
             const constexpr size_t GetSize(){
                 return size;
@@ -86,6 +89,7 @@ namespace ZE {
 
         private:
             bool ids[size];
+            size_t numactive;
         };
     };
 };
