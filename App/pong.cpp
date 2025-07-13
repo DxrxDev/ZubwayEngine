@@ -196,7 +196,7 @@ int main( void ){
                     );
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
                 }
-                if (s.age == (60 * 15)){
+                if (s.age == (60 * 60)){
                     toremove.push_back(s.id);
                 }
                 if (s.age < (60 * 6)){
@@ -204,7 +204,7 @@ int main( void ){
                 }
                 s.fruitcycle += 1;
 
-                if (s.fruitcycle == 2){
+                if (s.fruitcycle == (60 * 2)){
                     std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
                     ZE::Visual::AddQuad(
                         (Box2D){0, 0, 1, 2}, ZE::Visual::TextureMapToBox2D({8, 4}, 7, 0),
@@ -213,7 +213,7 @@ int main( void ){
                     );
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);   
                 }
-                if (s.fruitcycle == 50){
+                if (s.fruitcycle == (60 * 3)){
                     int32_t randomNum = (int32_t)GetRandom() % 6;
                     if (!randomNum){
                         printf("tree id:%lu can spawn a tree\n", s.id);
@@ -445,7 +445,6 @@ int main( void ){
         for (WindowEvent e : events){
             if (e.type == WindowEventType::Key) {
                 if (e.key.pressed){
-                    
                     switch( e.key.key ){
                     case 'q':{
                         running = false;

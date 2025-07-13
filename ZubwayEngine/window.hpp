@@ -19,7 +19,7 @@ enum class MouseButton {
 struct WindowEvent {
     WindowEventType type;
     struct Key {
-        char key;
+        uint32_t key;
         bool pressed;
         bool shift, control;
     };
@@ -53,7 +53,7 @@ public:
 
     std::vector<WindowEvent> GetEvents( void );
     bool IsRunning( void );
-    bool IsPressed( char c );
+    bool IsPressed( uint32_t c );
     bool IsPressed( MouseButton mb );
 
     void *GetWindowHandle( void );

@@ -47,8 +47,8 @@ bool Window::IsRunning( void ){
     return implementation->IsRunning();
 }
 
-bool Window::IsPressed( char c ){
-    return keys[(int)c];
+bool Window::IsPressed( uint32_t c ){
+    return keys[c];
 }
 bool Window::IsPressed( MouseButton mb ){
     return mouse[(int)mb];

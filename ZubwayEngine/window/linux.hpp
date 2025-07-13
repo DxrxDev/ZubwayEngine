@@ -3,6 +3,9 @@
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
 
+#define XK_MISCELLANY
+#include <X11/keysym.h>
+
 #include <vector>
 #include <cstring>
 
@@ -23,7 +26,7 @@ enum class MouseButton {
 struct WindowEvent {
     WindowEventType type;
     struct Key {
-        char key;
+        uint32_t key;
         bool pressed;
         bool shift, control;
     };
@@ -80,6 +83,8 @@ void InitWindowSystem( void ){
 void *GetWindowSystem( void ){
     return xcb_conn;
 }
+
+static xcb_key_symbols_t* symbols;
 
 class Window::WindowImpl{
 public:
@@ -161,9 +166,11 @@ public:
         );
         xcb_flush( xcb_conn );
 
+        symbols = xcb_key_symbols_alloc(xcb_conn);
     }
 
     ~WindowImpl(){
+        xcb_key_symbols_free(symbols);
         xcb_destroy_window( xcb_conn, xcb_window );
         xcb_flush( xcb_conn );
     }
@@ -171,8 +178,6 @@ public:
     std::vector<WindowEvent> GetEvents( void ){
         std::vector<WindowEvent> ret = std::vector<WindowEvent>();
         xcb_generic_event_t *event;
-
-        xcb_key_symbols_t* symbols = xcb_key_symbols_alloc(xcb_conn);
 
         while ((event = xcb_poll_for_event(xcb_conn))){
             switch (event->response_type & ~0x80){
@@ -199,12 +204,16 @@ public:
                 case XCB_KEY_PRESS:{
                     xcb_key_press_event_t e = *(xcb_key_press_event_t *)event;
                     
-                    xcb_keysym_t ks = xcb_key_symbols_get_keysym(symbols, e.detail, 0);
+                    xcb_keysym_t ks;
+                    if (e.detail == 0x32)
+                        break;
+                    
+                    ks = xcb_key_symbols_get_keysym(symbols, e.detail, 0);
                     
                     ret.push_back((WindowEvent){
-                        .type = WindowEventType::Key,
+                        WindowEventType::Key,
                         (WindowEvent::Key){
-                            .key = (char)ks,
+                            ks,
                             true, false, false
                         }
                     });
@@ -212,11 +221,17 @@ public:
 
                 case XCB_KEY_RELEASE:{
                     xcb_key_release_event_t e = *(xcb_key_release_event_t *)event;
-                    xcb_keysym_t ks = xcb_key_symbols_get_keysym(symbols, e.detail, 0);
+                    
+                    xcb_keysym_t ks;
+                    if (e.detail == 0x32)
+                        break;
+
+                    ks = xcb_key_symbols_get_keysym(symbols, e.detail, 0);
+                    
                     ret.push_back((WindowEvent){
-                        .type = WindowEventType::Key,
+                        WindowEventType::Key,
                         (WindowEvent::Key){
-                            .key = (char)ks,
+                            ks,
                             false, false, false
                         }
                     });
@@ -277,7 +292,6 @@ public:
             }
         }
 
-        xcb_key_symbols_free(symbols);
         xcb_flush( xcb_conn );
 
         return ret;
