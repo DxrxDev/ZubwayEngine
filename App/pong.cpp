@@ -45,7 +45,10 @@ Image cptoimg(cp_image_t i){
     };
 }
 
+bool gamepaused;
+
 int main( void ){
+    gamepaused = false;
     ResetRandom();
     const char *appName = "Stones To Bridges"; 
     InitWindowSystem( );
@@ -107,7 +110,7 @@ int main( void ){
                 4 * maxnumtrees, 6 * maxnumtrees
             );
         }
-        const char *AddTree(Vector3 pos, float age = 0.0f){
+        const char *AddTree( Vector3 pos, uint64_t age = 0 ){
             uint64_t treeid = trees.GenerateID();
 
             if (treeid >= maxnumtrees){
@@ -116,10 +119,10 @@ int main( void ){
             }
 
             if (treeid == treestates.size()){
-                treestates.push_back((state){treeid, age, 0.0, pos});
+                treestates.push_back((state){treeid, age, 0, pos});
             }
             else {
-                treestates[treeid] = (state){treeid, age, 0.0, pos};
+                treestates[treeid] = (state){treeid, age, 0, pos};
             }
 
             Vertex verts[4];
@@ -137,17 +140,27 @@ int main( void ){
             return nullptr;
         }
         void RemoveTree(uint64_t id){
-            treestates[id] = (state){id, 0.0f, 0.0f, {0, -50.0f, 0.0f}};
-            trees.RemoveID( id );
+            treestates[id] = (state){id, 0, 0, {0, -50.0f, 0.0f}};
+            if (trees.RemoveID( id )){
+                printf("tree with id wasnt active %lu, %lu\n", id, trees.GetNumActive());
+                return;
+            }
+
             std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
             ZE::Visual::AddQuad(
                 (Box2D){0, 0, 0, 0}, ZE::Visual::TextureMapToBox2D({128, 128}, 0, 0),
                 0, 0,
                 updatedsprite, _
             );
+            uint16_t zeroinds[6] = {0, 0, 0, 0, 0 ,0};
             const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, id * 4);
+            a = dq.ib->UpdateMemory( zeroinds, 6, id * 6 );
+
+            printf("removing tree with id %lu, %lu\n", id, trees.GetNumActive());
         }
         void Update(){
+            if (gamepaused)
+                return;
             std::vector<Vector3> newtreespos;
             std::vector<uint32_t> toremove;
             for (state& s: treestates){
@@ -155,7 +168,7 @@ int main( void ){
                     continue;
 
                 s.age += 1;
-                if (s.age == (60 * 2.f)){
+                if (s.age == (60 * 2)){
                     std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
                     ZE::Visual::AddQuad(
                         (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 5, 0),
@@ -165,7 +178,7 @@ int main( void ){
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
                     // printf("updated id num %lu, offsetval: %lu|| %s\n", s.id, 4 * s.id, a);
                 }
-                if (s.age == (60 * 4.f)){
+                if (s.age == (60 * 4)){
                     std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
                     ZE::Visual::AddQuad(
                         (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 5, 1),
@@ -174,7 +187,7 @@ int main( void ){
                     );
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
                 }
-                if (s.age == (60 * 6.0f)){
+                if (s.age == (60 * 6)){
                     std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
                     ZE::Visual::AddQuad(
                         (Box2D){0, 0, 1, 2}, ZE::Visual::TextureMapToBox2D({8, 4}, 6, 0),
@@ -183,16 +196,15 @@ int main( void ){
                     );
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
                 }
-                if (s.age == (60 * 40.0f)){
+                if (s.age == (60 * 15)){
                     toremove.push_back(s.id);
                 }
-                if (s.age < (60 * 6.0)){
+                if (s.age < (60 * 6)){
                     continue;
                 }
-                s.fruitcycle += 0.01;
-                s.fruitcycle = std::round(s.fruitcycle * 100.0f) / 100.0f;
+                s.fruitcycle += 1;
 
-                if (s.fruitcycle == 2.f){
+                if (s.fruitcycle == 2){
                     std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
                     ZE::Visual::AddQuad(
                         (Box2D){0, 0, 1, 2}, ZE::Visual::TextureMapToBox2D({8, 4}, 7, 0),
@@ -201,19 +213,17 @@ int main( void ){
                     );
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);   
                 }
-                if (s.fruitcycle == 5.f){
-                    for (int i = 0; i < 3; ++i){
-                        int32_t randomNum = (int32_t)GetRandom() % 6;
-                        if (!randomNum){
-                            printf("[RND %d]tree id:%lu can spawn a tree\n", randomNum, s.id);
-                            newtreespos.push_back((Vector3){
-                                s.pos.x + (((float)GetRandom() - 500.f)/800.f),
-                                -0.5f,
-                                s.pos.z + (((float)GetRandom() - 500.f)/800.f)
-                            });
-                        }
+                if (s.fruitcycle == 50){
+                    int32_t randomNum = (int32_t)GetRandom() % 6;
+                    if (!randomNum){
+                        printf("tree id:%lu can spawn a tree\n", s.id);
+                        newtreespos.push_back((Vector3){
+                            s.pos.x + (((float)GetRandom() - 500.f)/800.f),
+                            -0.5f,
+                            s.pos.z + (((float)GetRandom() - 500.f)/800.f)
+                        });
                     }
-                    s.fruitcycle = 0.f;
+                    s.fruitcycle = 0;
                     std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
                     ZE::Visual::AddQuad(
                         (Box2D){0, 0, 1, 2}, ZE::Visual::TextureMapToBox2D({8, 4}, 6, 0),
@@ -225,11 +235,11 @@ int main( void ){
 
             }
 
-            for (Vector3 v : newtreespos){
-                AddTree( v );
-            }
             for (uint32_t id: toremove){
                 RemoveTree( id );
+            }
+            for (Vector3 v : newtreespos){
+                AddTree( v );
             }
 
             std::sort(
@@ -251,6 +261,13 @@ int main( void ){
                 inds.push_back(s.inds[5]);
             }
             dq.ib->UpdateMemory(inds.data(), inds.size(), 0);
+
+            if (newtreespos.size() || toremove.size())
+                printf(
+                    "trees created: %lu\n"
+                    "trees removed: %lu\n",
+                    newtreespos.size(), toremove.size()
+                );
         }
         // Fruit LookForFruit(){
             
@@ -258,8 +275,8 @@ int main( void ){
 
         struct state {
             uint64_t id;
-            float age;
-            float fruitcycle;
+            uint64_t age;
+            uint64_t fruitcycle;
             Vector3 pos;
 
             uint16_t inds[6];
@@ -275,7 +292,7 @@ int main( void ){
         MVP *mvps;
     };
     Trees trees(mvps.data());
-    uint32_t numtrees = 15;
+    uint32_t numtrees = 25;
     for (uint32_t i = 0; i < numtrees; ++i){
         trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 60 * 4.f);
     }
@@ -431,6 +448,9 @@ int main( void ){
                     switch( e.key.key ){
                     case 'q':{
                         running = false;
+                    } break;
+                    case 'p':{
+                        gamepaused = !gamepaused;
                     } break;
                     }
                 }

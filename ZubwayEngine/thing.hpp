@@ -69,10 +69,10 @@ namespace ZE {
             }
             bool RemoveID(uint64_t id){
                 if (!ids[id]){
-                    return 0;
+                    return 1;
                 }
                 ids[id] = 0; numactive--;
-                return 1;
+                return 0;
             }
             void Reset(){
                 memset(ids, 0, size/8);
