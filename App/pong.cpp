@@ -242,14 +242,15 @@ int main( void ){
                 AddTree( v );
             }
 
+            std::vector<state> draworder = treestates;
             std::sort(
-                treestates.begin(), treestates.end(),
+                draworder.begin(), draworder.end(),
                 [](state a, state b) {
                     return a.pos.z < b.pos.z;
                 }
             );
             std::vector<uint16_t> inds;
-            for (const state& s: treestates){
+            for (const state& s: draworder){
                 if (!trees[s.id])
                     continue;
 
