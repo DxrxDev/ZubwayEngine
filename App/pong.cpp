@@ -23,8 +23,8 @@ float millisecondsSinceLastFrame;
 #define SCREEN_TOP   -10.0f
 #define SCREEN_BOTTOM 10.0f
 
-#define SCREEN_WIDTH  30.0f
-#define SCREEN_HEIGHT 20.0f
+#define SCREEN_WIDTH  1280.0f
+#define SCREEN_HEIGHT 720.0f
 
 #define MAX_TRANSFORMS 1024
 
@@ -54,7 +54,7 @@ int main( void ){
     InitWindowSystem( );
     InitGraphicsSystem( appName );
 
-    GraphicsWindow wnd(600, 400, appName, Window::CreationFlags::None);
+    GraphicsWindow wnd(SCREEN_WIDTH, SCREEN_HEIGHT, appName, Window::CreationFlags::None);
     mainWnd = &wnd;
 
     Image cpI = cptoimg(cp_load_png("STB.png"));
@@ -196,7 +196,7 @@ int main( void ){
                     );
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
                 }
-                if (s.age == (60 * 60)){
+                if (s.age == (60 * 120)){
                     toremove.push_back(s.id);
                 }
                 if (s.age < (60 * 6)){
@@ -213,8 +213,8 @@ int main( void ){
                     );
                     const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);   
                 }
-                if (s.fruitcycle == (60 * 3)){
-                    int32_t randomNum = (int32_t)GetRandom() % 6;
+                if (s.fruitcycle == (60 * 20)){
+                    int32_t randomNum = (int32_t)GetRandom() % 10;
                     if (!randomNum){
                         printf("tree id:%lu can spawn a tree\n", s.id);
                         newtreespos.push_back((Vector3){
@@ -293,7 +293,7 @@ int main( void ){
         MVP *mvps;
     };
     Trees trees(mvps.data());
-    uint32_t numtrees = 25;
+    uint32_t numtrees = 15;
     for (uint32_t i = 0; i < numtrees; ++i){
         trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 60 * 4.f);
     }
@@ -307,83 +307,101 @@ int main( void ){
             float energy;
             bool foodsearching;
             bool showingstamina;
+
+            uint32_t trs;
         };
         Tribe( ZE::DataStructures::IDManager<1024> &idman, MVP *mvps ): idman(idman), mvps(mvps){
             // trsid = idman.GenerateID();
-            // dq = { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
-            // ZE::Visual::AddQuad(
-            //     (Box2D){0, 0, 2, 2}, (Box2D)ZE::Visual::TextureMapToBox2D({8, 8}, 0, 0),
-            //     0, trsid, dq.verts, dq.inds
-            // );
-            // ZE::Visual::CreateDrawQueue(
-            //     mainWnd, dq,
-            //     0, 0
-            // );
-            // pos = {0, -0.5, -10.0};
-            // targetPos = (Vector3){ ((float)GetRandom()/100.0f), -0.5, (float)GetRandom()/100.0f};
-            // foodsearching = false;
-            // showingstamina = false;
+            dq = { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
+            ZE::Visual::CreateDrawQueue(
+                mainWnd, dq,
+                1000, 1000
+            );
         }
         ~Tribe() = default;
 
         void SpawnFella( const char *name ){
+            uint32_t id = (uint32_t)idman.GenerateID();
+            fellas.push_back(
+                (Fella){
+                    name,
+                    {0, 0, 0}, {0, 0, 0},
+                    100, 0, 0,
+                    id
+                }
+            );
 
+            ZE::Visual::AddQuad(
+                {0, 0, 0.5, 1.0},
+                ZE::Visual::TextureMapToBox2D({16, 8}, 0, 0),
+                0, id,
+                MatrixTranslate(0, -0.5, 0),
+                dq.verts, dq.inds
+            );
+
+            dq.vb->UpdateMemory(dq.verts.data(), dq.verts.size(), 0);
+            dq.ib->UpdateMemory(dq.inds.data(), dq.inds.size(), 0);
+
+            mvps[id] = {MatrixIdentity()};
         }
     
         void Update( std::vector<WindowEvent> events, std::vector<Trees::state>& treestates ){
-            // for (WindowEvent e: events){
-            //     if (e.type != WindowEventType::Key) continue;
-            // }
-            // if (energy < 50.0f && foodsearching == false){
-            //     foodsearching = true;
-            //     // Find closest tree
-            //     std::vector<Vector3> treepositions;
-            //     for (Trees::state s: treestates){
-            //         treepositions.push_back(s.pos);
-            //     }
-            //     int64_t indexOfClosestTree = -1;
-            //     float closestTreeDist = std::numeric_limits<float>::max();
-            //     for (int i = 0; i < treepositions.size(); ++i){
-            //         float cdist = sqrt(
-            //             pow(pos.x - treepositions[i].x, 2) + 
-            //             pow(pos.y - treepositions[i].y, 2) + 
-            //             pow(pos.z - treepositions[i].z, 2)
-            //         );
-                
-            //         if (cdist < closestTreeDist){
-            //             closestTreeDist = cdist;
-            //             indexOfClosestTree = i;
-            //         }
-            //     }
-            //     // move towards the tree
-            //     targetPos = treepositions[indexOfClosestTree];
-            // }
-            
-            // float
-            //     dx = targetPos.x - pos.x,
-            //     dz = targetPos.z - pos.z
-            // ;
-            // float len = ((dx * dx) + (dz * dz));
-            // len = (float)((uint64_t)(len * 100)) / 100.0;
-            // Vector2 v = {dx, dz};
-            // v = Vector2Normalize(v) / 60.0f;
-            // if (len > 0){
-            //     len = sqrt(len);
-            //     dx /= len * 30;
-            //     dz /= len * 30;
-            //     pos = Vector3Add(pos, (Vector3){v.x, 0, v.y});
-            //     energy -= 1.0 / 60.0;
-            //     mvps[trsid].model = MatrixTranslate( pos.x, pos.y, pos.z );
-            // }
-            // else {
-            //     targetPos =  (Vector3){ (((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f};
-            //     if (foodsearching){
-            //         foodsearching = false;
-            //         energy = 100.0f;
-            //     }
-            // }
+            for (Fella& f: fellas){
+                Trees::state closesttree = treestates[0];
+
+                float closesttreedist = INFINITY;/*sqrt(
+                    (f.pos.x - closesttree.pos.x) * (f.pos.x - closesttree.pos.x) +
+                    (f.pos.x - closesttree.pos.z) * (f.pos.x - closesttree.pos.z)
+                );*/
+
+                for (uint32_t i = 0; i < treestates.size(); ++i){
+                    float nexttreedist = sqrt(
+                        (f.pos.x - treestates[i].pos.x) * (f.pos.x - treestates[i].pos.x) +
+                        (f.pos.z - treestates[i].pos.z) * (f.pos.z - treestates[i].pos.z)
+                    );
+                    if (nexttreedist < closesttreedist){
+                        closesttreedist = nexttreedist;
+                        closesttree = treestates[i];
+                        printf("%s found a closer tree %f\n", f.name, nexttreedist);
+                    }
+                }
+
+                f.energy -= 0.5;
+                if (f.energy <= 0){
+                    f.foodsearching = true;
+
+                    if (closesttreedist < 0.1){
+                        f.pos = closesttree.pos;
+                        closesttreedist = 0.f;
+                        closesttree.age =  60 * 240;
+                        f.energy = 100.f;
+                        f.foodsearching = false;
+                    }
+                    float xdist = f.pos.x - closesttree.pos.x;
+                    float zdist = f.pos.z - closesttree.pos.z;
+
+                    if (xdist < 0.)
+                        f.pos.x += std::min<float>(0.05, (xdist * -1));
+                    else if (xdist > 0.)
+                        f.pos.x -= std::max<float>(0.05, (xdist * -1));
+
+                    if (zdist < 0.)
+                        f.pos.z += std::min<float>(0.05, (zdist * -1));
+                    else if (zdist > 0.)
+                        f.pos.z -= std::max<float>(0.05, (zdist * -1));
+
+                    printf( "%s diff = %f %f \n", f.name, xdist, zdist );
+
+                }
+                else{
+                    f.pos.x += (GetRandom() - 500) / (100.f * 60.f);
+                    f.pos.z += (GetRandom() - 500) / (100.f * 60.f);
+                }
+                mvps[f.trs] = {MatrixTranslate(f.pos.x, 0, f.pos.z)};
+            }
         }
         
+        std::vector<Fella> fellas;
         ZE::Visual::DrawQueue dq;
         ZE::DataStructures::IDManager<1024> &idman;
         MVP *mvps;
@@ -395,7 +413,7 @@ int main( void ){
     theFirst.SpawnFella("merrin");
     theFirst.SpawnFella("cleet");
     theFirst.SpawnFella("fueller");
-   
+
     // ZE::Visual::DrawQueue ProgressBar { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr};
     // uint32_t bartr1 = transformIDs.GenerateID();
     // uint32_t bartr2 = transformIDs.GenerateID();
@@ -410,6 +428,40 @@ int main( void ){
     //     0, bartr2, ProgressBar.verts, ProgressBar.inds
     // );
     // ZE::Visual::CreateDrawQueue(&wnd, ProgressBar, 0, 0);
+
+    class UI{
+    public:
+        struct Component{
+            bool active;
+            uint64_t x, y;
+            uint64_t width, height;
+        };
+
+        UI(){
+            ZE::Visual::CreateDrawQueue( mainWnd, dq, 1000, 1000);
+        }
+
+        const char *AddComponent( UI::Component comp ){
+            ZE::Visual::AddQuad(
+                (Box2D){(float)comp.x, (float)comp.y, (float)comp.width, (float)comp.height },
+                ZE::Visual::TextureMapToBox2D({1, 1}, 0, 0),
+                0, 0, dq.verts, dq.inds
+            );
+            dq.vb->UpdateMemory(dq.verts.data(), dq.verts.size(),  0);
+            dq.ib->UpdateMemory(dq.inds.data(), dq.inds.size(),  0);
+
+            return nullptr;
+        }
+
+        ZE::Visual::DrawQueue dq;
+    private:
+    };
+    UI ui;
+    ui.AddComponent(
+        (UI::Component){
+            true, 20, 20, 100, 100
+        }
+    );
 
     ZE::Camera::ProjectionCamera cam(
         PI / 3.0,
@@ -490,8 +542,9 @@ int main( void ){
         //////////////////////////////////////
         std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vis = {
             {map.dq.vb, map.dq.ib},
+            {theFirst.dq.vb, theFirst.dq.ib},
             {trees.dq.vb, trees.dq.ib},
-            //{theFirst.dq.vb, theFirst.dq.ib}
+            //{ui.dq.vb, ui.dq.ib}
 
             //{ProgressBar.vb, ProgressBar.ib},
         };

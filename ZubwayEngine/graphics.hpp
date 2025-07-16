@@ -230,7 +230,7 @@ public:
         return uniformPool;
     }
     VkPipelineLayout           GetPipelineLayout( void ){
-        return pipelineLayout;
+        return pipelinelayouts[0];
     }
     VkPipeline                 GetPipeline( void );
     VkCommandPool              GetCommandPool( void );
@@ -274,8 +274,8 @@ private:
     VkDescriptorSetLayout      textureLayout;
     VkDescriptorPool           uniformPool;
     
-    VkPipelineLayout           pipelineLayout;
-    VkPipeline                 pipeline;
+    VkPipelineLayout           pipelinelayouts[2];
+    VkPipeline                 pipelines[2];
     VkCommandPool              cmdpool;
     
     VkSemaphore                semaphore_imageGrabbed;

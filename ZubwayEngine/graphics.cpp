@@ -512,8 +512,10 @@ GraphicsWindow::~GraphicsWindow(){
     vkDestroySemaphore( device, semaphore_renderDone, nullptr );
 
     vkDestroyCommandPool( device, cmdpool, nullptr );    
-    vkDestroyPipeline( device, pipeline, nullptr );
+    vkDestroyPipeline( device, pipelines[0], nullptr );
+    vkDestroyPipeline( device, pipelines[1], nullptr );
 
+    vkDestroySwapchainKHR( device, swapchain, nullptr );
     //vkDestroySurfaceKHR( vk_inst, surface, nullptr );
 }
 
@@ -539,7 +541,7 @@ std::vector<VkFramebuffer> GraphicsWindow::GetFrameBuffers( void ){
     return frames;
 }
 VkPipeline GraphicsWindow::GetPipeline( void ){
-    return pipeline;
+    return pipelines[0];
 }
 VkCommandPool GraphicsWindow::GetCommandPool( void ){
     return cmdpool;
@@ -1089,31 +1091,51 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = pushconstants
     };
-    vkCreatePipelineLayout( device, &plci, nullptr, &pipelineLayout );
+    vkCreatePipelineLayout( device, &plci, nullptr, &pipelinelayouts[0] );
 
 
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .stageCount = 2, // Vertex & fragment shaders
-        .pStages = shaderCreateInfos,
-        .pVertexInputState = &plVertexInputCI,
-        .pInputAssemblyState = &plInputAssemblyCI,
-        .pTessellationState = nullptr, // OPTIONAL
-        .pViewportState = &plViewportCI,
-        .pRasterizationState = &plRasterizationCI,
-        .pMultisampleState = &multisampleCI,
-        .pDepthStencilState = &depthstencilCI,
-        .pColorBlendState = &plColorBlendingCI,
-        .layout = pipelineLayout,
-        .renderPass = rp,
-        .subpass = 0
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo[2] = {
+        {
+            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .stageCount = 2, // Vertex & fragment shaders
+            .pStages = shaderCreateInfos,
+            .pVertexInputState = &plVertexInputCI,
+            .pInputAssemblyState = &plInputAssemblyCI,
+            .pTessellationState = nullptr, // OPTIONAL
+            .pViewportState = &plViewportCI,
+            .pRasterizationState = &plRasterizationCI,
+            .pMultisampleState = &multisampleCI,
+            .pDepthStencilState = &depthstencilCI,
+            .pColorBlendState = &plColorBlendingCI,
+            .layout = pipelinelayouts[0],
+            .renderPass = rp,
+            .subpass = 0
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .stageCount = 2, // Vertex & fragment shaders
+            .pStages = shaderCreateInfos,
+            .pVertexInputState = &plVertexInputCI,
+            .pInputAssemblyState = &plInputAssemblyCI,
+            .pTessellationState = nullptr, // OPTIONAL
+            .pViewportState = &plViewportCI,
+            .pRasterizationState = &plRasterizationCI,
+            .pMultisampleState = &multisampleCI,
+            .pDepthStencilState = &depthstencilCI,
+            .pColorBlendState = &plColorBlendingCI,
+            .layout = pipelinelayouts[0],
+            .renderPass = rp,
+            .subpass = 0
+        }
     };
 
     vkCreateGraphicsPipelines(
         device, VK_NULL_HANDLE,
-        1, &pipelineCreateInfo, nullptr, &pipeline
+        2, pipelineCreateInfo, nullptr, pipelines
     );
 
     return 0;
@@ -1175,7 +1197,7 @@ void GraphicsWindow::BeginRenderPassCommand( VkCommandBuffer presentbuffer, int3
         .pClearValues = clearVal
     };
     vkCmdBeginRenderPass( presentbuffer, &rpbi, VK_SUBPASS_CONTENTS_INLINE );
-    vkCmdBindPipeline( presentbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
+    vkCmdBindPipeline( presentbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0] );
 }
 void GraphicsWindow::EndRenderPassCommand( VkCommandBuffer presentbuffer ){
     vkCmdEndRenderPass(presentbuffer);
@@ -1242,7 +1264,7 @@ int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexB
     BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
     ub.BindBuffer( cmd.GetCmd() );
     vi.Bind( cmd.GetCmd() );
-    vkCmdPushConstants( cmd.GetCmd(), pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
+    vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
     
     for (auto vi : vibuffs){
         std::get<0>(vi)->BindBuffer( cmd.GetCmd() );
