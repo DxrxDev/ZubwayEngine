@@ -890,7 +890,7 @@ int32_t GraphicsWindow::CreateUniformDescriptors( void ){
     return 0;
 }
 int32_t GraphicsWindow::CreatePipeline( void ){
-    std::vector<char> shaderSources[2];
+    std::vector<char> shaderSources[4];
     {
         std::ifstream vfile( "vert.spirv", std::ios::ate | std::ios::binary );
         if (!vfile.is_open())
@@ -907,11 +907,28 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         ffile.seekg(0);
         ffile.read(shaderSources[1].data(), shaderSources[1].size());
         ffile.close();
+
+
+        std::ifstream vuifile( "vertui.spirv", std::ios::ate | std::ios::binary );
+        if (!vuifile.is_open())
+            Error() << "Couldnt open vertex ui shader !!";
+        shaderSources[2] = std::vector<char>(vuifile.tellg());
+        vuifile.seekg(0);
+        vuifile.read(shaderSources[2].data(), shaderSources[2].size());
+        vuifile.close();
+
+        std::ifstream fuifile( "fragui.spirv", std::ios::ate | std::ios::binary );
+        if (!fuifile.is_open())
+            Error() << "Couldnt open fragment ui shader !!";
+        shaderSources[3] = std::vector<char>(fuifile.tellg());
+        fuifile.seekg(0);
+        fuifile.read(shaderSources[3].data(), shaderSources[3].size());
+        fuifile.close();
     }
 
-    VkShaderModule shaderModules[2];
+    VkShaderModule shaderModules[4];
     {
-        VkShaderModuleCreateInfo shaderModulesCI[2] = {
+        VkShaderModuleCreateInfo shaderModulesCI[4] = {
             {
                 .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                 .pNext = nullptr,
@@ -925,14 +942,31 @@ int32_t GraphicsWindow::CreatePipeline( void ){
                 .flags = 0,
                 .codeSize = shaderSources[1].size(),
                 .pCode = (const uint32_t*)shaderSources[1].data()
+            },
+            {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .codeSize = shaderSources[2].size(),
+                .pCode = (const uint32_t*)shaderSources[2].data()
+            },
+            {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .codeSize = shaderSources[3].size(),
+                .pCode = (const uint32_t*)shaderSources[3].data()
             }
         };
 
         vkCreateShaderModule(device, shaderModulesCI + 0, nullptr, shaderModules + 0);
         vkCreateShaderModule(device, shaderModulesCI + 1, nullptr, shaderModules + 1);
+        vkCreateShaderModule(device, shaderModulesCI + 2, nullptr, shaderModules + 2);
+        vkCreateShaderModule(device, shaderModulesCI + 3, nullptr, shaderModules + 3);
+
     }
 
-    VkPipelineShaderStageCreateInfo shaderCreateInfos[2] = {
+    VkPipelineShaderStageCreateInfo shaderCreateInfos[4] = {
         {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = nullptr,
@@ -950,6 +984,24 @@ int32_t GraphicsWindow::CreatePipeline( void ){
             .module = shaderModules[1],
             .pName = "main",
             .pSpecializationInfo = nullptr
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = shaderModules[2],
+            .pName = "main",
+            .pSpecializationInfo = nullptr
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = shaderModules[3],
+            .pName = "main",
+            .pSpecializationInfo = nullptr
         }
     };
 
@@ -965,7 +1017,24 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .pVertexAttributeDescriptions = attributeDesc.data()
     };
 
+    VkPipelineVertexInputStateCreateInfo uiplVertexInputCI = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .vertexBindingDescriptionCount = (uint32_t)bindingDesc.size(),
+        .pVertexBindingDescriptions = bindingDesc.data(), 
+        .vertexAttributeDescriptionCount = (uint32_t)attributeDesc.size(),
+        .pVertexAttributeDescriptions = attributeDesc.data()
+    };
+
     VkPipelineInputAssemblyStateCreateInfo plInputAssemblyCI = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE
+    };
+    VkPipelineInputAssemblyStateCreateInfo uiplInputAssemblyCI = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -1118,9 +1187,9 @@ int32_t GraphicsWindow::CreatePipeline( void ){
             .pNext = nullptr,
             .flags = 0,
             .stageCount = 2, // Vertex & fragment shaders
-            .pStages = shaderCreateInfos,
-            .pVertexInputState = &plVertexInputCI,
-            .pInputAssemblyState = &plInputAssemblyCI,
+            .pStages = shaderCreateInfos+2,
+            .pVertexInputState = &uiplVertexInputCI,
+            .pInputAssemblyState = &uiplInputAssemblyCI,
             .pTessellationState = nullptr, // OPTIONAL
             .pViewportState = &plViewportCI,
             .pRasterizationState = &plRasterizationCI,
@@ -1197,7 +1266,6 @@ void GraphicsWindow::BeginRenderPassCommand( VkCommandBuffer presentbuffer, int3
         .pClearValues = clearVal
     };
     vkCmdBeginRenderPass( presentbuffer, &rpbi, VK_SUBPASS_CONTENTS_INLINE );
-    vkCmdBindPipeline( presentbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0] );
 }
 void GraphicsWindow::EndRenderPassCommand( VkCommandBuffer presentbuffer ){
     vkCmdEndRenderPass(presentbuffer);
@@ -1262,14 +1330,21 @@ int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexB
     vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
 
     BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
+    
+    vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0] );
+    vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
+
     ub.BindBuffer( cmd.GetCmd() );
     vi.Bind( cmd.GetCmd() );
-    vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
     
-    for (auto vi : vibuffs){
-        std::get<0>(vi)->BindBuffer( cmd.GetCmd() );
-        std::get<1>(vi)->BindBuffer( cmd.GetCmd() );
-        vkCmdDrawIndexed(cmd.GetCmd(), std::get<1>(vi)->GetIndCount(), 1, 0, 0, 0);
+    for (uint64_t i = 0; i < vibuffs.size(); ++i){
+        if (i == (vibuffs.size()-1)){
+            vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1] );
+            vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
+        }
+        std::get<0>(vibuffs[i])->BindBuffer( cmd.GetCmd() );
+        std::get<1>(vibuffs[i])->BindBuffer( cmd.GetCmd() );
+        vkCmdDrawIndexed(cmd.GetCmd(), std::get<1>(vibuffs[i])->GetIndCount(), 1, 0, 0, 0);
     }
 
     EndRenderPassCommand( cmd.GetCmd() );   

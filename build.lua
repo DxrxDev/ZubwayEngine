@@ -210,6 +210,14 @@ fragshader = CreateProject( "frag", "out", "shader" )
 fragshader.files = {
 	"ZubwayEngine/basic.frag"
 }
+vertshaderui = CreateProject( "vertui", "out", "shader" )
+vertshaderui.files = {
+	"ZubwayEngine/ui.vert"
+}
+fragshaderui = CreateProject( "fragui", "out", "shader" )
+fragshaderui.files = {
+	"ZubwayEngine/ui.frag"
+}
 
 if #arg == 0 then
 	arg[1] = "all"
@@ -224,6 +232,8 @@ for i = 1, #arg do
 		RunProject( game )
 		RunProject( vertshader )
 		RunProject( fragshader )
+		RunProject( vertshaderui )
+		RunProject( fragshaderui )
 	elseif arg[i] == "wingfx" then
 		RunProject( wingfx )
 		RunProject( game )
@@ -238,6 +248,8 @@ for i = 1, #arg do
 	elseif arg[i] == "shaders" then
 		RunProject( vertshader )
 		RunProject( fragshader )
+		RunProject( vertshaderui )
+		RunProject( fragshaderui )
 	elseif arg[i] == "run" then
 		os.execute(
 			"cd "..game.outdir.."/ ; ./"..game.name..".out"

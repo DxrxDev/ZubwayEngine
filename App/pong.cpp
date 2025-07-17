@@ -60,6 +60,9 @@ int main( void ){
     Image cpI = cptoimg(cp_load_png("STB.png"));
     VulkanImage vi(&wnd, cpI.width, cpI.height, (Image::Pixel*)cpI.data);
 
+    Image uispritesheeddata = cptoimg(cp_load_png("STB_ui.png"));
+    VulkanImage viui(&wnd, uispritesheeddata.width, uispritesheeddata.height, (Image::Pixel*)uispritesheeddata.data);
+
     DepthStencil sd(&wnd);
 
     ZE::DataStructures::IDManager<1024> transformIDs; transformIDs.GenerateID(); // index 0 will be an identity matrix
@@ -134,8 +137,6 @@ int main( void ){
     
             if (nullptr != dq.vb->UpdateMemory(verts, 4, treeid * 4))
                 Error() << "Couldn't update the trees vertex buffer!!";
-
-            printf("created tree with id %lu, %lu\n", treeid, trees.GetNumActive());
 
             return nullptr;
         }
@@ -362,7 +363,6 @@ int main( void ){
                     if (nexttreedist < closesttreedist){
                         closesttreedist = nexttreedist;
                         closesttree = treestates[i];
-                        printf("%s found a closer tree %f\n", f.name, nexttreedist);
                     }
                 }
 
@@ -389,8 +389,6 @@ int main( void ){
                         f.pos.z += std::min<float>(0.05, (zdist * -1));
                     else if (zdist > 0.)
                         f.pos.z -= std::max<float>(0.05, (zdist * -1));
-
-                    printf( "%s diff = %f %f \n", f.name, xdist, zdist );
 
                 }
                 else{
@@ -443,7 +441,7 @@ int main( void ){
 
         const char *AddComponent( UI::Component comp ){
             ZE::Visual::AddQuad(
-                (Box2D){(float)comp.x, (float)comp.y, (float)comp.width, (float)comp.height },
+                (Box2D){(float)comp.x + (comp.width/2.0f), (float)comp.y + (comp.height/2.0f), (float)comp.width, (float)comp.height },
                 ZE::Visual::TextureMapToBox2D({1, 1}, 0, 0),
                 0, 0, dq.verts, dq.inds
             );
@@ -544,7 +542,7 @@ int main( void ){
             {map.dq.vb, map.dq.ib},
             {theFirst.dq.vb, theFirst.dq.ib},
             {trees.dq.vb, trees.dq.ib},
-            //{ui.dq.vb, ui.dq.ib}
+            {ui.dq.vb, ui.dq.ib}
 
             //{ProgressBar.vb, ProgressBar.ib},
         };
