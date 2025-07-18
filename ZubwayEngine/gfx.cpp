@@ -319,4 +319,22 @@ namespace ZE {
                 );
             }
     };
+
+    namespace UI {
+        void AddSquare(Vector2 pos, Vector2 size, Vector4 col, std::vector<VertexUI>& verts){
+            Vector2 texcorners[4] = {
+                {0.0, 0.0},
+                {1.0, 0.0},
+                {0.0, 1.0},
+                {1.0, 1.0}
+            };
+        
+            verts.push_back({{pos.x, pos.y}, col, texcorners[0]}); //TL
+            verts.push_back({{pos.x + size.x, pos.y}, col, texcorners[1]}); //TR
+            verts.push_back({{pos.x, pos.y + size.y}, col, texcorners[2]}); //BL
+            verts.push_back({{pos.x + size.x, pos.y + size.y}, col, texcorners[3]}); //BR
+
+            return;
+        };
+    }
 };

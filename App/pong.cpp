@@ -60,8 +60,8 @@ int main( void ){
     Image cpI = cptoimg(cp_load_png("STB.png"));
     VulkanImage vi(&wnd, cpI.width, cpI.height, (Image::Pixel*)cpI.data);
 
-    Image uispritesheeddata = cptoimg(cp_load_png("STB_ui.png"));
-    VulkanImage viui(&wnd, uispritesheeddata.width, uispritesheeddata.height, (Image::Pixel*)uispritesheeddata.data);
+    // Image uispritesheeddata = cptoimg(cp_load_png("STB_ui.png"));
+    // VulkanImage viui(&wnd, uispritesheeddata.width, uispritesheeddata.height, (Image::Pixel*)uispritesheeddata.data);
 
     DepthStencil sd(&wnd);
 
@@ -435,29 +435,26 @@ int main( void ){
             uint64_t width, height;
         };
 
-        UI(){
-            ZE::Visual::CreateDrawQueue( mainWnd, dq, 1000, 1000);
+        UI() : uib(mainWnd, data, 1000)
+        {
+            
         }
 
         const char *AddComponent( UI::Component comp ){
-            ZE::Visual::AddQuad(
-                (Box2D){(float)comp.x + (comp.width/2.0f), (float)comp.y + (comp.height/2.0f), (float)comp.width, (float)comp.height },
-                ZE::Visual::TextureMapToBox2D({1, 1}, 0, 0),
-                0, 0, dq.verts, dq.inds
-            );
-            dq.vb->UpdateMemory(dq.verts.data(), dq.verts.size(),  0);
-            dq.ib->UpdateMemory(dq.inds.data(), dq.inds.size(),  0);
+            ZE::UI::AddSquare({10, 10}, {20, 20}, {1, 1, 1, 1}, data);
+            uib.UpdateMemory(data.data(), data.size(),  0);
 
             return nullptr;
         }
 
-        ZE::Visual::DrawQueue dq;
+        UIBuffer uib;
+        std::vector<VertexUI> data;
     private:
     };
     UI ui;
     ui.AddComponent(
         (UI::Component){
-            true, 20, 20, 100, 100
+            true, 20, 100, 500, 100
         }
     );
 
@@ -542,11 +539,9 @@ int main( void ){
             {map.dq.vb, map.dq.ib},
             {theFirst.dq.vb, theFirst.dq.ib},
             {trees.dq.vb, trees.dq.ib},
-            {ui.dq.vb, ui.dq.ib}
-
             //{ProgressBar.vb, ProgressBar.ib},
         };
-        wnd.DrawIndexed( vis, ub1, vi, cam.GetView() * cam.GetProj() );
+        wnd.DrawIndexed( vis, ui.uib, ub1, vi, cam.GetView() * cam.GetProj() );
         t2 = std::chrono::high_resolution_clock::now();
 
         millisecondsSinceLastFrame =

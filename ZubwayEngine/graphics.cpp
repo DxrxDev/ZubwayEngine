@@ -293,6 +293,93 @@ uint32_t IndexBuffer::GetIndCount( void ){
     return numInds;
 }
 
+UIBuffer::UIBuffer( GraphicsWindow *wnd, std::vector<VertexUI>& verts, uint32_t reserved ){
+    window = wnd;
+    verticies = verts;
+    numreserved = std::max<uint64_t>(verticies.size(), (uint64_t)reserved);
+
+    vertBuffer = new Buffer(
+        wnd->GetDevice(), wnd->GetPhysicalDevice(),
+        sizeof(verticies[0]) * numreserved,
+        (
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT
+        ),
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    if (verts.size() > 0)
+        UpdateMemory(verts.data(), verts.size(), 0);
+}
+UIBuffer::~UIBuffer( ){
+    delete vertBuffer;
+}
+const char *UIBuffer::UpdateMemory( VertexUI *verts, size_t numverts, size_t offset ){
+    if ((numverts + offset) > numreserved)
+        return "Trying to write out of bounds!\n";
+    
+    Buffer vertStageBuffer(
+        window->GetDevice(), window->GetPhysicalDevice(),
+        sizeof(VertexUI) * numverts,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        (
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        )
+    );
+
+    void* mappeddata;
+    vkMapMemory(window->GetDevice(), vertStageBuffer.GetMemory(), 0, vertStageBuffer.GetSizeOnGPU(), 0, &mappeddata);
+    memcpy(mappeddata, verts, vertStageBuffer.GetSizeOnGPU());
+    vkUnmapMemory(window->GetDevice(), vertStageBuffer.GetMemory());
+
+    Command cmd(window->GetDevice(), window->GetCommandPool() );
+    cmd.Begin();
+
+    VkBufferCopy cbcp = {
+        0, sizeof(VertexUI) * offset,
+        vertStageBuffer.GetSizeOnCPU(),
+    };
+    vkCmdCopyBuffer(
+        cmd.GetCmd(), 
+        vertStageBuffer.GetBuffer(), vertBuffer->GetBuffer(),
+        1, &cbcp
+    );
+
+
+    vkEndCommandBuffer(cmd.GetCmd());
+
+    VkSubmitInfo submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = cmd.GetPtr(),
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr
+    };
+
+    vkQueueSubmit(window->GetGraphicsQueue(), 1, &submit, VK_NULL_HANDLE);
+    vkQueueWaitIdle(window->GetGraphicsQueue());
+
+    return nullptr;
+}
+int32_t UIBuffer::BindBuffer( VkCommandBuffer cmd ){
+    VkBuffer buffers[] = {vertBuffer->GetBuffer()};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(cmd, 0, 1, buffers, offsets);
+
+    return 0;
+}
+uint32_t UIBuffer::GetVertCount( ){
+    return verticies.size();
+}
+uint32_t UIBuffer::GetSizeofData( void ){
+    return sizeof(verticies[0]) * verticies.size();
+}
+
 /* =====(UNIFORM BUFFER)===== */
 
 UniformBuffer::UniformBuffer( GraphicsWindow *wnd, uint32_t capacity ){
@@ -1017,14 +1104,16 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .pVertexAttributeDescriptions = attributeDesc.data()
     };
 
+    std::vector<VkVertexInputBindingDescription> bindingDescui = Vertex::GetBindingDescription();
+    std::vector<VkVertexInputAttributeDescription> attributeDescui = Vertex::GetAttributeDescription();
     VkPipelineVertexInputStateCreateInfo uiplVertexInputCI = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .vertexBindingDescriptionCount = (uint32_t)bindingDesc.size(),
-        .pVertexBindingDescriptions = bindingDesc.data(), 
-        .vertexAttributeDescriptionCount = (uint32_t)attributeDesc.size(),
-        .pVertexAttributeDescriptions = attributeDesc.data()
+        .vertexBindingDescriptionCount = (uint32_t)bindingDescui.size(),
+        .pVertexBindingDescriptions = bindingDescui.data(), 
+        .vertexAttributeDescriptionCount = (uint32_t)attributeDescui.size(),
+        .pVertexAttributeDescriptions = attributeDescui.data()
     };
 
     VkPipelineInputAssemblyStateCreateInfo plInputAssemblyCI = {
@@ -1320,7 +1409,7 @@ int32_t GraphicsWindow::Draw( VertexBuffer& vb ){
 
     return 0;
 }*/
-int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexBuffer*>> vibuffs, UniformBuffer& ub, VulkanImage& vi, Matrix vp ){
+int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexBuffer*>> vibuffs, UIBuffer& uib, UniformBuffer& ub, VulkanImage& vi, Matrix vp ){
     vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
     vkResetFences( device, 1, &fense_inFlight );
 
@@ -1330,7 +1419,6 @@ int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexB
     vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
 
     BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
-    
     vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0] );
     vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
 
@@ -1338,10 +1426,12 @@ int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexB
     vi.Bind( cmd.GetCmd() );
     
     for (uint64_t i = 0; i < vibuffs.size(); ++i){
-        if (i == (vibuffs.size()-1)){
-            vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1] );
-            vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
-        }
+        // if (i == (vibuffs.size()-1)){
+        //     vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1] );
+        //     vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
+        //     uib.BindBuffer(cmd.GetCmd());
+        //     break;
+        // }
         std::get<0>(vibuffs[i])->BindBuffer( cmd.GetCmd() );
         std::get<1>(vibuffs[i])->BindBuffer( cmd.GetCmd() );
         vkCmdDrawIndexed(cmd.GetCmd(), std::get<1>(vibuffs[i])->GetIndCount(), 1, 0, 0, 0);

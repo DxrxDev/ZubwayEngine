@@ -1,3 +1,4 @@
+#include "raymath.h"
 #include "thing.hpp"
 #include <cstddef>
 #if !defined( __GFX_HPP )
@@ -132,6 +133,10 @@ namespace ZE {
         private:
             Vector2 screenSize;
         };
+    };
+
+    namespace UI{
+        void AddSquare(Vector2 pos, Vector2 size, Vector4 col, std::vector<VertexUI>& verts);
     };
 
     template <size_t size>

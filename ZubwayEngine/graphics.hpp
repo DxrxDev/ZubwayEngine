@@ -65,6 +65,43 @@ struct Vertex{
         };
     }
 };
+struct VertexUI{
+    Vector3 pos;
+    Vector4 col;
+    Vector2 texcoord;
+
+    static std::vector<VkVertexInputBindingDescription> GetBindingDescription( void ){
+        return {
+            {
+                .binding   = 0,
+                .stride    = sizeof(Vector3) + sizeof(Vector4) + sizeof(Vector2),
+                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+            }
+        };
+    }
+    static std::vector<VkVertexInputAttributeDescription> GetAttributeDescription( void ){
+        return {
+            {
+                .location = 0,
+                .binding  = 0,
+                .format   = VK_FORMAT_R32G32B32_SFLOAT,
+                .offset   = 0
+            },
+            {
+                .location = 1,
+                .binding  = 0,
+                .format   = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .offset   = sizeof(Vector3)
+            },
+            {
+                .location = 2,
+                .binding  = 0,
+                .format   = VK_FORMAT_R32G32_SFLOAT,
+                .offset   = sizeof(Vector3) + sizeof(Vector4)
+            }
+        };
+    }
+};
 
 struct MVP{
     Matrix model;
@@ -146,6 +183,23 @@ private:
     size_t reserved;
     size_t numInds;
 };
+class UIBuffer {
+public:
+    UIBuffer( GraphicsWindow *wnd, std::vector<VertexUI>& verts, uint32_t reserved );
+    ~UIBuffer( );
+    const char *UpdateMemory( VertexUI *verts, size_t numverts, size_t offset );
+    int32_t BindBuffer( VkCommandBuffer cmd );
+
+    uint32_t GetVertCount( void );
+    uint32_t GetSizeofData( void );
+private:
+
+    GraphicsWindow *window;
+    Buffer *vertBuffer;
+    std::vector<VertexUI> verticies;
+
+    size_t numreserved;
+};
 
 class UniformBuffer{
 public:
@@ -207,7 +261,7 @@ public:
     GraphicsWindow( uint32_t width, uint32_t height, const char *title, CreationFlags flag );
     ~GraphicsWindow();
 
-    int32_t DrawIndexed( std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vibuffs, UniformBuffer& ub, VulkanImage& vi, Matrix vp );
+    int32_t DrawIndexed( std::vector<std::pair<VertexBuffer *, IndexBuffer *>> vibuffs, UIBuffer& uib, UniformBuffer& ub, VulkanImage& vi, Matrix vp );
 
     int32_t PrepareDraws( void );
     int32_t PresentDraws( void );
