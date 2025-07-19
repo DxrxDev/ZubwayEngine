@@ -435,19 +435,22 @@ int main( void ){
             uint64_t width, height;
         };
 
-        UI() : uib(mainWnd, data, 1000)
-        {
-            
+        UI(){
+            data = std::vector<VertexUI>();
+            uib = new UIBuffer(mainWnd, data, 1000 );
+        }
+        ~UI(){
+            delete uib;
         }
 
         const char *AddComponent( UI::Component comp ){
             ZE::UI::AddSquare({10, 10}, {20, 20}, {1, 1, 1, 1}, data);
-            uib.UpdateMemory(data.data(), data.size(),  0);
+            uib->UpdateMemory(data.data(), data.size(),  0);
 
             return nullptr;
         }
 
-        UIBuffer uib;
+        UIBuffer *uib;
         std::vector<VertexUI> data;
     private:
     };
@@ -541,7 +544,7 @@ int main( void ){
             {trees.dq.vb, trees.dq.ib},
             //{ProgressBar.vb, ProgressBar.ib},
         };
-        wnd.DrawIndexed( vis, ui.uib, ub1, vi, cam.GetView() * cam.GetProj() );
+        wnd.DrawIndexed( vis, *ui.uib, ub1, vi, cam.GetView() * cam.GetProj() );
         t2 = std::chrono::high_resolution_clock::now();
 
         millisecondsSinceLastFrame =

@@ -1104,8 +1104,8 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .pVertexAttributeDescriptions = attributeDesc.data()
     };
 
-    std::vector<VkVertexInputBindingDescription> bindingDescui = Vertex::GetBindingDescription();
-    std::vector<VkVertexInputAttributeDescription> attributeDescui = Vertex::GetAttributeDescription();
+    std::vector<VkVertexInputBindingDescription> bindingDescui = VertexUI::GetBindingDescription();
+    std::vector<VkVertexInputAttributeDescription> attributeDescui = VertexUI::GetAttributeDescription();
     VkPipelineVertexInputStateCreateInfo uiplVertexInputCI = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext = nullptr,
@@ -1421,21 +1421,22 @@ int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexB
     BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
     vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0] );
     vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
-
-    ub.BindBuffer( cmd.GetCmd() );
+    
     vi.Bind( cmd.GetCmd() );
     
+    ub.BindBuffer( cmd.GetCmd() );
+    
     for (uint64_t i = 0; i < vibuffs.size(); ++i){
-        // if (i == (vibuffs.size()-1)){
-        //     vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1] );
-        //     vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
-        //     uib.BindBuffer(cmd.GetCmd());
-        //     break;
-        // }
         std::get<0>(vibuffs[i])->BindBuffer( cmd.GetCmd() );
         std::get<1>(vibuffs[i])->BindBuffer( cmd.GetCmd() );
         vkCmdDrawIndexed(cmd.GetCmd(), std::get<1>(vibuffs[i])->GetIndCount(), 1, 0, 0, 0);
     }
+
+    vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1] );
+    vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
+    uib.BindBuffer(cmd.GetCmd());
+    vkCmdDraw(cmd.GetCmd(), 4, 1, 0, 0);
+
 
     EndRenderPassCommand( cmd.GetCmd() );   
 
