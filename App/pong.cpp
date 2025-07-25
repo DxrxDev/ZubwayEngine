@@ -57,8 +57,9 @@ int main( void ){
     GraphicsWindow wnd(SCREEN_WIDTH, SCREEN_HEIGHT, appName, Window::CreationFlags::None);
     mainWnd = &wnd;
 
-    Image cpI = cptoimg(cp_load_png("STB.png"));
-    VulkanImage vi(&wnd, cpI.width, cpI.height, (Image::Pixel*)cpI.data);
+    Image worldtexmap = cptoimg(cp_load_png("STB.png"));
+    Image uitexmap = cptoimg(cp_load_png("STB_ui.png"));
+    VulkanImage vi(&wnd, worldtexmap, uitexmap);
 
     // Image uispritesheeddata = cptoimg(cp_load_png("STB_ui.png"));
     // VulkanImage viui(&wnd, uispritesheeddata.width, uispritesheeddata.height, (Image::Pixel*)uispritesheeddata.data);
@@ -433,6 +434,7 @@ int main( void ){
             bool active;
             uint64_t x, y;
             uint64_t width, height;
+            Box2D tex;
         };
 
         UI(){
@@ -444,7 +446,12 @@ int main( void ){
         }
 
         const char *AddComponent( UI::Component comp ){
-            ZE::UI::AddSquare({10, 10}, {20, 20}, {1, 1, 1, 1}, data);
+            ZE::UI::AddSquare(
+                {(float)comp.x, (float)comp.y}, {(float)comp.width, (float)comp.height}, 
+                comp.tex,
+                { 1.0, 1.0, 1.0, 1.0 },
+                data
+            );
             uib->UpdateMemory(data.data(), data.size(),  0);
 
             return nullptr;
@@ -457,7 +464,8 @@ int main( void ){
     UI ui;
     ui.AddComponent(
         (UI::Component){
-            true, 20, 100, 500, 100
+            true, 20, 100, 500, 100,
+            ZE::Visual::TextureMapToBox2D({1, 1}, 0, 0),
         }
     );
 
@@ -544,7 +552,9 @@ int main( void ){
             {trees.dq.vb, trees.dq.ib},
             //{ProgressBar.vb, ProgressBar.ib},
         };
+
         wnd.DrawIndexed( vis, *ui.uib, ub1, vi, cam.GetView() * cam.GetProj() );
+
         t2 = std::chrono::high_resolution_clock::now();
 
         millisecondsSinceLastFrame =

@@ -136,7 +136,7 @@ namespace ZE {
     };
 
     namespace UI{
-        void AddSquare(Vector2 pos, Vector2 size, Vector4 col, std::vector<VertexUI>& verts);
+        void AddSquare(Vector2 pos, Vector2 size, Box2D tex, Vector4 col, std::vector<VertexUI>& verts);
     };
 
     template <size_t size>

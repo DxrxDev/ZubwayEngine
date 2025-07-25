@@ -280,11 +280,17 @@ public:
     VkDescriptorSetLayout      GetDescriptorLayout2( void ){
         return textureLayout;
     }
+    VkDescriptorSetLayout      GetDescriptorLayout3( void ){
+        return uitextureLayout;
+    }    
     VkDescriptorPool           GetDescriptorPool( void ){
         return uniformPool;
     }
     VkPipelineLayout           GetPipelineLayout( void ){
         return pipelinelayouts[0];
+    }
+    VkPipelineLayout           GetPipelineLayout2( void ){
+        return pipelinelayouts[1];
     }
     VkPipeline                 GetPipeline( void );
     VkCommandPool              GetCommandPool( void );
@@ -326,6 +332,7 @@ private:
 
     VkDescriptorSetLayout      uniformLayout;
     VkDescriptorSetLayout      textureLayout;
+    VkDescriptorSetLayout      uitextureLayout;
     VkDescriptorPool           uniformPool;
     
     VkPipelineLayout           pipelinelayouts[2];
@@ -343,9 +350,13 @@ private:
 
 class VulkanImage{
 public:
-    VulkanImage(GraphicsWindow *window, uint32_t width, uint32_t height, Image::Pixel *data){
+    VulkanImage(GraphicsWindow *window, Image& worldimg, Image& uiimg){
         wnd = window;
-        uint32_t sizeofTex = width * height * 4;
+
+        uint32_t sizeoftex[2] = {
+            worldimg.width * worldimg.height * 4,
+            uiimg.width * uiimg.height * 4
+        };
 
         uint32_t queues[1] = { wnd->GetGraphicsQueueFamily() };
         VkImageCreateInfo ici = {
@@ -354,7 +365,7 @@ public:
             .flags = 0,
             .imageType = VK_IMAGE_TYPE_2D,
             .format = VK_FORMAT_R8G8B8A8_SRGB,
-            .extent = {.width = width, .height = height, .depth = 1},
+            .extent = {.width = worldimg.width, .height = worldimg.height, .depth = 1},
             .mipLevels = 1,
             .arrayLayers = 1,
             .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -365,11 +376,12 @@ public:
             .pQueueFamilyIndices = queues,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
         };
-        vkCreateImage(wnd->GetDevice(), &ici, nullptr, &img);
+        vkCreateImage(wnd->GetDevice(), &ici, nullptr, &img[0]);
+        ici.extent = {.width = uiimg.width, .height = uiimg.height, .depth = 1};
+        vkCreateImage(wnd->GetDevice(), &ici, nullptr, &img[1]);
 
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements( wnd->GetDevice(), img, &memRequirements);
-
+        vkGetImageMemoryRequirements( wnd->GetDevice(), img[0], &memRequirements);
         VkMemoryAllocateInfo mai = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext = nullptr,
@@ -380,12 +392,23 @@ public:
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
             )
         };
-        vkAllocateMemory( wnd->GetDevice(), &mai, nullptr, &imgM );
-        vkBindImageMemory( wnd->GetDevice(), img, imgM, 0 );
+        vkAllocateMemory( wnd->GetDevice(), &mai, nullptr, &imgM[0] );
+        vkBindImageMemory( wnd->GetDevice(), img[0], imgM[0], 0 );
+
+        vkGetImageMemoryRequirements( wnd->GetDevice(), img[1], &memRequirements);
+        mai.allocationSize = memRequirements.size;
+        mai.memoryTypeIndex = Buffer::findMemoryType(
+            wnd->GetPhysicalDevice(),
+            memRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        );
+        vkAllocateMemory( wnd->GetDevice(), &mai, nullptr, &imgM[1] );
+        vkBindImageMemory( wnd->GetDevice(), img[1], imgM[1], 0 );
+
 
         VkImageViewCreateInfo ivci = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = img,
+            .image = img[0],
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
             .format = VK_FORMAT_R8G8B8A8_SRGB,
             .components = {
@@ -402,13 +425,26 @@ public:
                 .layerCount = 1
             }
         };
-        vkCreateImageView( wnd->GetDevice(), &ivci, nullptr, &imgV );
+        vkCreateImageView( wnd->GetDevice(), &ivci, nullptr, &imgV[0] );
+
+        ivci.image = img[1];
+        vkCreateImageView( wnd->GetDevice(), &ivci, nullptr, &imgV[1] );
 
 
         Buffer staging(
             wnd->GetDevice(),
             wnd->GetPhysicalDevice(),
-            sizeofTex,
+            sizeoftex[0],
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            (
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+            )
+        );
+        Buffer staging2(
+            wnd->GetDevice(),
+            wnd->GetPhysicalDevice(),
+            sizeoftex[1],
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             (
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -417,15 +453,25 @@ public:
         );
 
         Image::Pixel *texData;
-        vkMapMemory(wnd->GetDevice(), staging.GetMemory(), 0, sizeofTex, 0, (void **)&texData);
+        vkMapMemory(wnd->GetDevice(), staging.GetMemory(), 0, sizeoftex[0], 0, (void **)&texData);
 
-        for (uint32_t y = 0; y < height; ++y){
-            for (uint32_t x = 0; x < width; ++x){
-                texData[(y * width) + x] = data[(y * width) + x];
+        Image::Pixel *texData2;
+        vkMapMemory(wnd->GetDevice(), staging2.GetMemory(), 0, sizeoftex[1], 0, (void **)&texData2);
+
+
+        for (uint32_t y = 0; y < worldimg.height; ++y){
+            for (uint32_t x = 0; x < worldimg.width; ++x){
+                texData[(y * worldimg.width) + x] = worldimg.data[(y * worldimg.width) + x];
             }
         }
-
         vkUnmapMemory(wnd->GetDevice(), staging.GetMemory());
+
+        for (uint32_t y = 0; y < uiimg.height; ++y){
+            for (uint32_t x = 0; x < uiimg.width; ++x){
+                texData2[(y * uiimg.width) + x] = uiimg.data[(y * uiimg.width) + x];
+            }
+        }
+        vkUnmapMemory(wnd->GetDevice(), staging2.GetMemory());
 
         Command transferDataCommand(wnd->GetDevice(), wnd->GetCommandPool());
         transferDataCommand.Begin();
@@ -439,7 +485,7 @@ public:
             .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // Not swapping queue
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // ownership of img
-            .image = img,
+            .image = img[0],
             .subresourceRange = (VkImageSubresourceRange){
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel = 0,
@@ -469,30 +515,41 @@ public:
             },
             .imageOffset = 0,
             .imageExtent = (VkExtent3D){
-                .width = width,
-                .height = height,
+                .width = worldimg.width,
+                .height = worldimg.height,
                 .depth = 1
             }
         };
         vkCmdCopyBufferToImage(
             transferDataCommand.GetCmd(),
             staging.GetBuffer(),
-            img,
+            img[0],
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1,
             &bic
         );
+        // bic.imageExtent = (VkExtent3D){
+        //     uiimg.width, uiimg.height, 1
+        // };
+        // vkCmdCopyBufferToImage(
+        //     transferDataCommand.GetCmd(),
+        //     staging2.GetBuffer(),
+        //     img[1],
+        //     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        //     1,
+        //     &bic
+        // );
 
         VkImageMemoryBarrier imb2 = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = 0,
             .dstAccessMask = 0,
-            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // Ignoring anything on image
+            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // Not swapping queue
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // ownership of img
-            .image = img,
+            .image = img[0],
             .subresourceRange = (VkImageSubresourceRange){
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel = 0,
@@ -549,7 +606,7 @@ public:
 
         
         VkDescriptorSetLayout uniformLayouts[] = {
-            wnd->GetDescriptorLayout2()
+            wnd->GetDescriptorLayout2(), wnd->GetDescriptorLayout3()
         };
         VkDescriptorSetAllocateInfo sdAI = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -558,42 +615,73 @@ public:
             .descriptorSetCount = 1,
             .pSetLayouts = uniformLayouts
         };
+        VkDescriptorSetAllocateInfo sdAI2 = sdAI;
+        sdAI2.pSetLayouts = uniformLayouts+1;
+        
 
-        if (vkAllocateDescriptorSets(wnd->GetDevice(), &sdAI, &descSet) != VK_SUCCESS) {
+        if (vkAllocateDescriptorSets(wnd->GetDevice(), &sdAI, descSet) != VK_SUCCESS) {
             Error() << "Couldn't allocate descriptor sets! (2)";
         }
+        if (vkAllocateDescriptorSets(wnd->GetDevice(), &sdAI2, descSet+1) != VK_SUCCESS) {
+            Error() << "Couldn't allocate descriptor sets! (2.1)";
+        }
 
-        VkDescriptorImageInfo samplerInfo = {
+        VkDescriptorImageInfo samplerInfo[2] = {
+            {
             .sampler = sampler,
-            .imageView = imgV,
+            .imageView = imgV[0],
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            },
+            {
+            .sampler = sampler,
+            .imageView = imgV[1],
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            },
         };
 
-        VkWriteDescriptorSet descriptorWrite = {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .pNext = nullptr,
-            .dstSet = descSet,
-            .dstBinding = 1,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &samplerInfo,
-            .pBufferInfo = nullptr,
-            .pTexelBufferView = nullptr
+        VkWriteDescriptorSet descriptorWrite[] = {
+            {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = nullptr,
+                .dstSet = descSet[0],
+                .dstBinding = 1,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo = &samplerInfo[0],
+                .pBufferInfo = nullptr,
+                .pTexelBufferView = nullptr
+            },
+            {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = nullptr,
+                .dstSet = descSet[1],
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo = &samplerInfo[1],
+                .pBufferInfo = nullptr,
+                .pTexelBufferView = nullptr
+            },
         };
 
         // Update the descriptor set to bind the uniform buffer
-        vkUpdateDescriptorSets(wnd->GetDevice(), 1, &descriptorWrite, 0, nullptr);
+        vkUpdateDescriptorSets(wnd->GetDevice(), 2, descriptorWrite, 0, nullptr);
     }
-    void Bind( VkCommandBuffer cmd ){
+    void Bind( VkCommandBuffer cmd, uint32_t img ){
+        if (!(img == 0 ) && !(img == 1))
+            Error() << "big ba;s";
         VkDescriptorSet desSets[1] = {
-            descSet
+            descSet[img]
         };
+        uint32_t fs = (img == 0) ? 1 : 0;
+        VkPipelineLayout l = (img == 0) ? wnd->GetPipelineLayout() : wnd->GetPipelineLayout2();
         vkCmdBindDescriptorSets(
             cmd,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
-            wnd->GetPipelineLayout(),
-            1,
+            l,
+            fs,
             1, desSets,
             0, nullptr
         );
@@ -601,12 +689,12 @@ public:
 private:
     GraphicsWindow *wnd;
 
-    VkImage        img;
-    VkImageView    imgV;
-    VkDeviceMemory imgM;
+    VkImage        img[2];
+    VkImageView    imgV[2];
+    VkDeviceMemory imgM[2];
 
     VkSampler sampler;
-    VkDescriptorSet descSet;
+    VkDescriptorSet descSet[2];
 };
 
 #endif

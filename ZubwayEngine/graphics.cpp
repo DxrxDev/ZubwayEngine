@@ -300,7 +300,7 @@ UIBuffer::UIBuffer( GraphicsWindow *wnd, std::vector<VertexUI>& verts, uint32_t 
 
     vertBuffer = new Buffer(
         wnd->GetDevice(), wnd->GetPhysicalDevice(),
-        sizeof(verticies[0]) * numreserved,
+        sizeof(VertexUI) * numreserved,
         (
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
             VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -374,7 +374,7 @@ int32_t UIBuffer::BindBuffer( VkCommandBuffer cmd ){
     return 0;
 }
 uint32_t UIBuffer::GetVertCount( ){
-    return verticies.size();
+    return std::max<uint32_t>( verticies.size(), numreserved );
 }
 uint32_t UIBuffer::GetSizeofData( void ){
     return sizeof(verticies[0]) * verticies.size();
@@ -945,11 +945,30 @@ int32_t GraphicsWindow::CreateUniformDescriptors( void ){
         .bindingCount = 1,
         .pBindings = &dslbS
     };
+
+    VkDescriptorSetLayoutBinding dslbS2 = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+    VkDescriptorSetLayoutCreateInfo ulciS2 = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .bindingCount = 1,
+        .pBindings = &dslbS2
+    };
+
     if (vkCreateDescriptorSetLayout(device, &ulciUB, nullptr, &uniformLayout) != VK_SUCCESS){
         Error() << "Couldn't create descriptor set layout! (1)";
     }
     if (vkCreateDescriptorSetLayout(device, &ulciS, nullptr, &textureLayout) != VK_SUCCESS){
         Error() << "Couldn't create descriptor set layout! (2)";
+    }
+    if (vkCreateDescriptorSetLayout(device, &ulciS2, nullptr, &uitextureLayout) != VK_SUCCESS){
+        Error() << "Couldn't create descriptor set layout! (3)";
     }
 
 
@@ -961,14 +980,18 @@ int32_t GraphicsWindow::CreateUniformDescriptors( void ){
         {
             .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = 1
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1
         }
     };
     VkDescriptorPoolCreateInfo poolCI = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .maxSets = 2,
-        .poolSizeCount = 2,
+        .maxSets = 3,
+        .poolSizeCount = 3,
         .pPoolSizes = poolsizes,
     };
     if (vkCreateDescriptorPool(device, &poolCI, nullptr, &uniformPool) != VK_SUCCESS){
@@ -1251,6 +1274,26 @@ int32_t GraphicsWindow::CreatePipeline( void ){
     };
     vkCreatePipelineLayout( device, &plci, nullptr, &pipelinelayouts[0] );
 
+    VkDescriptorSetLayout layouts2[] = {
+        uitextureLayout
+    };
+    VkPushConstantRange pushconstants2[] = {
+        (VkPushConstantRange){
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .offset = 0,
+            .size = sizeof(float) * 2
+        }
+    };
+    VkPipelineLayoutCreateInfo plci2 = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .setLayoutCount = 1,
+        .pSetLayouts = layouts2,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = pushconstants2
+    };
+    vkCreatePipelineLayout( device, &plci2, nullptr, &pipelinelayouts[1] );
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo[2] = {
         {
@@ -1285,7 +1328,7 @@ int32_t GraphicsWindow::CreatePipeline( void ){
             .pMultisampleState = &multisampleCI,
             .pDepthStencilState = &depthstencilCI,
             .pColorBlendState = &plColorBlendingCI,
-            .layout = pipelinelayouts[0],
+            .layout = pipelinelayouts[1],
             .renderPass = rp,
             .subpass = 0
         }
@@ -1421,9 +1464,8 @@ int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexB
     BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
     vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0] );
     vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
-    
-    vi.Bind( cmd.GetCmd() );
-    
+
+    vi.Bind( cmd.GetCmd(), 0 );
     ub.BindBuffer( cmd.GetCmd() );
     
     for (uint64_t i = 0; i < vibuffs.size(); ++i){
@@ -1433,10 +1475,11 @@ int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexB
     }
 
     vkCmdBindPipeline( cmd.GetCmd(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1] );
-    vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[0], VK_SHADER_STAGE_VERTEX_BIT, 0, 64, &vp);
+    //float mousepos[2] = {20.0, 20.0};
+    //vkCmdPushConstants( cmd.GetCmd(), pipelinelayouts[1], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 2, mousepos);
+    vi.Bind( cmd.GetCmd(), 1 );
     uib.BindBuffer(cmd.GetCmd());
-    vkCmdDraw(cmd.GetCmd(), 4, 1, 0, 0);
-
+    vkCmdDraw(cmd.GetCmd(), uib.GetVertCount(), 1, 0, 0);
 
     EndRenderPassCommand( cmd.GetCmd() );   
 
