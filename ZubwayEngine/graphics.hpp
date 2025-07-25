@@ -502,6 +502,15 @@ public:
             0, nullptr,
             1, &imb
         );
+        imb.image = img[1];
+        vkCmdPipelineBarrier(
+            transferDataCommand.GetCmd(),
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &imb
+        );
 
         VkBufferImageCopy bic = {
             .bufferOffset = 0,
@@ -528,44 +537,41 @@ public:
             1,
             &bic
         );
-        // bic.imageExtent = (VkExtent3D){
-        //     uiimg.width, uiimg.height, 1
-        // };
-        // vkCmdCopyBufferToImage(
-        //     transferDataCommand.GetCmd(),
-        //     staging2.GetBuffer(),
-        //     img[1],
-        //     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        //     1,
-        //     &bic
-        // );
-
-        VkImageMemoryBarrier imb2 = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = 0,
-            .dstAccessMask = 0,
-            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // Not swapping queue
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // ownership of img
-            .image = img[0],
-            .subresourceRange = (VkImageSubresourceRange){
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
-            }
+        bic.imageExtent = (VkExtent3D){
+            uiimg.width, uiimg.height, 1
         };
+        vkCmdCopyBufferToImage(
+            transferDataCommand.GetCmd(),
+            staging2.GetBuffer(),
+            img[1],
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &bic
+        );
+
+         
+        imb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imb.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imb.image = img[0];
         vkCmdPipelineBarrier(
             transferDataCommand.GetCmd(),
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             0,
             0, nullptr,
             0, nullptr,
-            1, &imb2
+            1, &imb
         );
+
+        imb.image = img[1];
+        vkCmdPipelineBarrier(
+            transferDataCommand.GetCmd(),
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &imb
+        );
+
 
         vkEndCommandBuffer(transferDataCommand.GetCmd());
         VkSubmitInfo submitInfo = {

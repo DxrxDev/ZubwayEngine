@@ -465,7 +465,7 @@ int main( void ){
     ui.AddComponent(
         (UI::Component){
             true, 20, 100, 500, 100,
-            ZE::Visual::TextureMapToBox2D({1, 1}, 0, 0),
+            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0),
         }
     );
 
