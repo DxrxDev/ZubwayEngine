@@ -1404,54 +1404,6 @@ void GraphicsWindow::EndRenderPassCommand( VkCommandBuffer presentbuffer ){
     vkEndCommandBuffer(presentbuffer);
 }
 
-/*
-int32_t GraphicsWindow::Draw( VertexBuffer& vb ){
-    vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
-    vkResetFences( device, 1, &fense_inFlight );
-
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR( device, swapchain, UINT64_MAX, semaphore_imageGrabbed, VK_NULL_HANDLE, &imageIndex );
-
-    Command cmd( device, cmdpool );
-
-    BeginRenderPassCommand( cmd.GetCmd(), imageIndex );
-        vb.BindBuffer( cmd.GetCmd() );
-        vkCmdDraw(cmd.GetCmd(), vb.GetVertCount(), 1, 0, 0);
-    EndRenderPassCommand( cmd.GetCmd() );
-
-    VkSemaphore waitSemaphores[] = {semaphore_imageGrabbed};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore signalSemaphores[] = {semaphore_renderDone};
-    VkSubmitInfo submit = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = cmd.GetPtr(),
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores
-    };
-    vkQueueSubmit( graphicsQueue, 1, &submit, fense_inFlight );
-
-    VkSwapchainKHR swapchains[] = {swapchain};
-    VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapchains,
-        .pImageIndices = &imageIndex,
-    };
-
-    if (vkQueuePresentKHR( presentQueue, &presentInfo ) != VK_SUCCESS){
-        Error() << "Couldn't Present image :/";
-    }
-
-    return 0;
-}*/
 int32_t GraphicsWindow::DrawIndexed( std::vector<std::pair<VertexBuffer*, IndexBuffer*>> vibuffs, UIBuffer& uib, UniformBuffer& ub, VulkanImage& vi, Matrix vp ){
     vkWaitForFences( device, 1, &fense_inFlight, VK_TRUE, UINT64_MAX );
     vkResetFences( device, 1, &fense_inFlight );

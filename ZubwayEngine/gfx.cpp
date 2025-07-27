@@ -320,7 +320,7 @@ namespace ZE {
             }
     };
 
-    namespace UI {
+    namespace UIll {
         void AddSquare(Vector2 pos, Vector2 size, Box2D tex, Vector4 col, std::vector<VertexUI>& verts){
             static Vector2 texcorners[4] = {
                 {tex.x, tex.y},

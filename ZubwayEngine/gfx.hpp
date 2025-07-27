@@ -135,9 +135,71 @@ namespace ZE {
         };
     };
 
-    namespace UI{
+    namespace UIll{
         void AddSquare(Vector2 pos, Vector2 size, Box2D tex, Vector4 col, std::vector<VertexUI>& verts);
     };
+    class UI{
+    public:
+        struct Component {
+            bool created;
+            struct Style{
+                Box2D box;
+                Vector4 col;
+                Box2D tex;
+            } style;
+
+            bool leaf;
+            Component *children;
+            uint32_t numchildren;
+        };
+
+        UI( GraphicsWindow *wnd, Vector2 screensize ){
+            data = std::vector<VertexUI>();
+            uib = new UIBuffer( wnd, data, 4000 );
+
+            root = { true, { 0, 0, screensize.x, screensize.y }, false, new Component[10], 10 };
+        }
+        ~UI(){
+            delete uib;
+        }
+
+        std::vector<VertexUI> GetVerts( Component& comp ){
+            Component* currcomp = comp.children;
+            std::vector<VertexUI> verts;
+            for (uint32_t i = 0; i < comp.numchildren; ++i){
+                if (currcomp->created != true){
+                    currcomp++;
+                    continue;    
+                }
+                if (currcomp->leaf == false){
+                    for (VertexUI v: GetVerts(*currcomp)){
+                        verts.push_back(v);
+                    }
+                }
+                Vector2 pos = {currcomp->style.box.x, currcomp->style.box.x};
+                Vector2 size = {currcomp->style.box.w, currcomp->style.box.h};
+
+                UIll::AddSquare(pos, size, currcomp->style.tex, currcomp->style.col, verts);
+                
+                currcomp++;
+            }
+            
+            return verts;
+        }
+        void Redraw(){
+            data = GetVerts(root);
+            uib->UpdateMemory(data.data(), data.size(), 0);
+            printf("number of verts %lu\n", data.size());
+        }
+
+        UIBuffer *uib;
+        Component root;
+        private:
+        std::vector<VertexUI> data;
+    };
+    // UI::Component::Style CreatePlane(){
+        
+    // }
 
     template <size_t size>
     class SpriteCluster {

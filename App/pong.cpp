@@ -413,61 +413,22 @@ int main( void ){
     theFirst.SpawnFella("cleet");
     theFirst.SpawnFella("fueller");
 
-    // ZE::Visual::DrawQueue ProgressBar { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr};
-    // uint32_t bartr1 = transformIDs.GenerateID();
-    // uint32_t bartr2 = transformIDs.GenerateID();
-    // ZE::Visual::AddQuad(
-    //     (Box2D){0, 0, 0.6, 0.2},
-    //     ZE::Visual::TextureMapToBox2D({128, 8}, 0, 7 ),
-    //     0, bartr1, ProgressBar.verts, ProgressBar.inds
-    // );
-    // ZE::Visual::AddQuad(
-    //     (Box2D){0, 0, 0.6, 0.2},
-    //     ZE::Visual::TextureMapToBox2D({128, 8}, 1, 7 ),
-    //     0, bartr2, ProgressBar.verts, ProgressBar.inds
-    // );
-    // ZE::Visual::CreateDrawQueue(&wnd, ProgressBar, 0, 0);
+    ZE::UI ui( mainWnd, {SCREEN_WIDTH, SCREEN_HEIGHT} );
 
-    class UI{
-    public:
-        struct Component{
-            bool active;
-            uint64_t x, y;
-            uint64_t width, height;
-            Box2D tex;
-        };
+    Vector4 bgcol = { 0.005, 0.015, 0.005, 1.0 };
+    Vector4 energycol1 = { 0.8, 0.0, 0.0, 1.0 };
+    Vector4 energycol2 = { 0.0, 0.8, 0.0, 1.0 };
 
-        UI(){
-            data = std::vector<VertexUI>();
-            uib = new UIBuffer(mainWnd, data, 1000 );
-        }
-        ~UI(){
-            delete uib;
-        }
-
-        const char *AddComponent( UI::Component comp ){
-            ZE::UI::AddSquare(
-                {(float)comp.x, (float)comp.y}, {(float)comp.width, (float)comp.height}, 
-                comp.tex,
-                { 1.0, 1.0, 1.0, 1.0 },
-                data
-            );
-            uib->UpdateMemory(data.data(), data.size(),  0);
-
-            return nullptr;
-        }
-
-        UIBuffer *uib;
-        std::vector<VertexUI> data;
-    private:
+    ui.root.children[0] = {
+        true,
+        {
+            { 10, 10, 100, 20 },
+            {1, 1, 1, 1},
+            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
+        },
+        true, nullptr, 0
     };
-    UI ui;
-    ui.AddComponent(
-        (UI::Component){
-            true, 20, 100, 500, 100,
-            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0),
-        }
-    );
+    ui.Redraw();
 
     ZE::Camera::ProjectionCamera cam(
         PI / 3.0,
@@ -476,9 +437,7 @@ int main( void ){
     cam.SetPos({0, -5.0, 0});
     
     mvps[0] = {MatrixIdentity()};
-
     UniformBuffer ub1( &wnd, 1024 );
-
     ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
 
     bool running = true;
