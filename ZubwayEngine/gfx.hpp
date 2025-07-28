@@ -142,13 +142,15 @@ namespace ZE {
     public:
         struct Component {
             bool created;
+            std::vector<uint32_t> path;
+            
             struct Style{
                 Box2D box;
                 Vector4 col;
                 Box2D tex;
             } style;
 
-            bool leaf;
+            bool splits;
             Component *children;
             uint32_t numchildren;
         };
@@ -157,7 +159,7 @@ namespace ZE {
             data = std::vector<VertexUI>();
             uib = new UIBuffer( wnd, data, 4000 );
 
-            root = { true, { 0, 0, screensize.x, screensize.y }, false, new Component[10], 10 };
+            root = { true, {}, { 0, 0, screensize.x, screensize.y }, false, new Component[10], 10 };
         }
         ~UI(){
             delete uib;
@@ -171,12 +173,21 @@ namespace ZE {
                     currcomp++;
                     continue;    
                 }
-                if (currcomp->leaf == false){
+                if (currcomp->splits){
                     for (VertexUI v: GetVerts(*currcomp)){
                         verts.push_back(v);
                     }
                 }
-                Vector2 pos = {currcomp->style.box.x, currcomp->style.box.y};
+                Vector2 posoffset = {0, 0};
+                for (uint32_t i = 0; i < currcomp->path.size(); ++i){
+                    posoffset += {
+                        root.children[currcomp->path[i]].style.box.x,
+                        root.children[currcomp->path[i]].style.box.y
+                    };
+                    printf("{{ %f, %f }}\n", posoffset.x, posoffset.y);
+                }
+
+                Vector2 pos = {currcomp->style.box.x + posoffset.x, currcomp->style.box.y + posoffset.y};
                 Vector2 size = {currcomp->style.box.w, currcomp->style.box.h};
 
                 UIll::AddSquare(pos, size, currcomp->style.tex, currcomp->style.col, verts);

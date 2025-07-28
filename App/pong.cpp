@@ -420,22 +420,21 @@ int main( void ){
     Vector4 energycol2 = { 0.0, 0.8, 0.0, 1.0 };
 
     ui.root.children[0] = {
-        true,
+        true, {0},
         {
-            { 10, 10, 100, 20 },
+            { 10, 10, 450, 600 },
             {1, 1, 1, 1},
             ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
         },
-        false, new ZE::UI::Component, 1
+        true, new ZE::UI::Component, 1
     };
     ui.root.children[0].children[0] = {
-        true,
+        true, {0, 0},
         {
-            { 50, 0, 20, 150 },
+            { 0, 0, 20, 150 },
             {1, 0.5, 0, 1},
             ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
-        },
-        true
+        }
     };
     ui.Redraw();
 
