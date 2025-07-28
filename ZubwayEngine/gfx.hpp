@@ -176,7 +176,7 @@ namespace ZE {
                         verts.push_back(v);
                     }
                 }
-                Vector2 pos = {currcomp->style.box.x, currcomp->style.box.x};
+                Vector2 pos = {currcomp->style.box.x, currcomp->style.box.y};
                 Vector2 size = {currcomp->style.box.w, currcomp->style.box.h};
 
                 UIll::AddSquare(pos, size, currcomp->style.tex, currcomp->style.col, verts);
