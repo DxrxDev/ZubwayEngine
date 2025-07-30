@@ -415,24 +415,36 @@ int main( void ){
 
     ZE::UI ui( mainWnd, {SCREEN_WIDTH, SCREEN_HEIGHT} );
 
-    Vector4 bgcol = { 0.005, 0.015, 0.005, 1.0 };
-    Vector4 energycol1 = { 0.8, 0.0, 0.0, 1.0 };
-    Vector4 energycol2 = { 0.0, 0.8, 0.0, 1.0 };
+    Vector4 bgcol = { 1, 0.95, 0.9, 1.0 };
+    Vector4 energycol1 = { 0.0, 0.8, 0.0, 1.0 };
+    Vector4 energycol2 = { 0.8, 0.0, 0.0, 1.0 };
 
+    ZE::UI::Component& menu1 =
     ui.root.children[0] = {
         true, {0},
         {
             { 10, 10, 450, 600 },
-            {1, 1, 1, 1},
+            bgcol,
             ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
         },
         true, new ZE::UI::Component, 1
     };
+    ZE::UI::Component& energybarbg =
     ui.root.children[0].children[0] = {
         true, {0, 0},
         {
-            { 0, 0, 20, 150 },
-            {1, 0.5, 0, 1},
+            { 25, 10, 400, 100 },
+            energycol2,
+            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
+        },
+        true, new ZE::UI::Component, 1
+    };
+    ZE::UI::Component& energybarfg =
+    ui.root.children[0].children[0].children[0] = {
+        true, {0, 0, 0},
+        {
+            { 0, 0, 200, 90 },
+            energycol1,
             ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
         }
     };

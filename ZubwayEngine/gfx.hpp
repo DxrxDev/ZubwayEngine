@@ -141,7 +141,7 @@ namespace ZE {
     class UI{
     public:
         struct Component {
-            bool created;
+            bool active;
             std::vector<uint32_t> path;
             
             struct Style{
@@ -159,42 +159,58 @@ namespace ZE {
             data = std::vector<VertexUI>();
             uib = new UIBuffer( wnd, data, 4000 );
 
-            root = { true, {}, { 0, 0, screensize.x, screensize.y }, false, new Component[10], 10 };
+            root = {
+                true, {},
+                {
+                    { 0, 0, screensize.x, screensize.y},
+                    {0, 0, 0.0, 0.0},
+                    ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
+
+                },
+                true, new Component, 1 };
         }
         ~UI(){
             delete uib;
         }
 
         std::vector<VertexUI> GetVerts( Component& comp ){
-            Component* currcomp = comp.children;
+            if (!comp.active)
+                return std::vector<VertexUI>(0);
+
             std::vector<VertexUI> verts;
-            for (uint32_t i = 0; i < comp.numchildren; ++i){
-                if (currcomp->created != true){
-                    currcomp++;
-                    continue;    
-                }
-                if (currcomp->splits){
-                    for (VertexUI v: GetVerts(*currcomp)){
+
+            Vector2 posoffset = {0, 0};
+            Component *offsetcomp = &root;
+            printf("-----\nProcessing component\n");
+            for (uint32_t i = 0; i < comp.path.size(); ++i){
+                if (i == comp.path.size()-1) continue; // This is kinda ugly but `for (uint32_t i = 0; i < comp.path.size()-1; ++i)` throws err
+                
+                offsetcomp = &offsetcomp->children[comp.path[i]];
+                posoffset += {
+                    offsetcomp->style.box.x,
+                    offsetcomp->style.box.y
+                };
+                //printf("path step %u, index %u | x=%f, y=%f\n", i, comp.path[i], posoffset.x, posoffset.y );
+            }
+            printf("number of children = %u\n", comp.numchildren);
+
+            if (comp.splits){
+                for (uint32_t i = 0; i < comp.numchildren; ++i){
+                    for (VertexUI v: GetVerts(comp.children[i])){
                         verts.push_back(v);
                     }
                 }
-                Vector2 posoffset = {0, 0};
-                for (uint32_t i = 0; i < currcomp->path.size(); ++i){
-                    posoffset += {
-                        root.children[currcomp->path[i]].style.box.x,
-                        root.children[currcomp->path[i]].style.box.y
-                    };
-                    printf("{{ %f, %f }}\n", posoffset.x, posoffset.y);
-                }
-
-                Vector2 pos = {currcomp->style.box.x + posoffset.x, currcomp->style.box.y + posoffset.y};
-                Vector2 size = {currcomp->style.box.w, currcomp->style.box.h};
-
-                UIll::AddSquare(pos, size, currcomp->style.tex, currcomp->style.col, verts);
-                
-                currcomp++;
             }
+            Vector2 pos = {comp.style.box.x + posoffset.x, comp.style.box.y + posoffset.y};
+            Vector2 size = {comp.style.box.w, comp.style.box.h};
+            UIll::AddSquare(pos, size, comp.style.tex, comp.style.col, verts);    
             
+            printf(
+                "component level = %lu, (%f, %f)\n"
+                "-----\n",
+
+                comp.path.size(), pos.x, pos.y
+            );
             return verts;
         }
         void Redraw(){

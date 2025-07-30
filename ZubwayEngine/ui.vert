@@ -20,8 +20,8 @@ layout (location = 3) out vec2 f_mouse;
 
 void main(){
     gl_Position = vec4(
-        v_pos.x/1280.0 - 1.0,
-        v_pos.y/720 - 1.0,
+        (v_pos.x/640.0) - 1.0,
+        (v_pos.y/360.0) - 1.0,
         0.5,
         1.0
     );
