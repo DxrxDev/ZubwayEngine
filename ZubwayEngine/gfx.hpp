@@ -1,5 +1,6 @@
 #include "raymath.h"
 #include "thing.hpp"
+#include <cmath>
 #include <cstddef>
 #if !defined( __GFX_HPP )
 #define       __GFX_HPP
@@ -153,6 +154,8 @@ namespace ZE {
             bool splits;
             Component *children;
             uint32_t numchildren;
+
+            uint32_t ind;
         };
 
         UI( GraphicsWindow *wnd, Vector2 screensize ){
@@ -173,7 +176,40 @@ namespace ZE {
             delete uib;
         }
 
-        std::vector<VertexUI> GetVerts( Component& comp ){
+        bool ComparePaths( const Component& c1, const Component& c2 ){
+            if (c1.path.size() != c2.path.size())
+                return 0;
+
+            for (uint32_t i = 0; i < c1.path.size(); ++i){
+                if (c1.path[i] != c2.path[i])
+                    return 0;
+            }
+
+            return 1;
+        }
+        uint32_t GetSizeOfTree( const Component& comp ){
+            uint32_t total = 0;
+            if (comp.active){
+                total += 1;
+                if (comp.splits){
+                    for (uint32_t i = 0; i < comp.numchildren; ++i){
+                        total += GetSizeOfTree( comp.children[i] );
+                    }
+                }
+            };
+            return total;
+        }
+        std::vector<VertexUI> GetVerts( Component& comp, bool updateoffsetandsize = false ){
+            static uint32_t _ind = 0;
+            bool cond = comp.path.size() == 0 && updateoffsetandsize;
+            if (cond){
+                printf("Recalculating UI...\n");
+                _ind = 0;
+            }
+            else {
+                //printf("\n");
+            }
+
             if (!comp.active)
                 return std::vector<VertexUI>(0);
 
@@ -181,7 +217,7 @@ namespace ZE {
 
             Vector2 posoffset = {0, 0};
             Component *offsetcomp = &root;
-            printf("-----\nProcessing component\n");
+            printf("-----\nProcessing component, deep %lu\n", comp.path.size());
             for (uint32_t i = 0; i < comp.path.size(); ++i){
                 if (i == comp.path.size()-1) continue; // This is kinda ugly but `for (uint32_t i = 0; i < comp.path.size()-1; ++i)` throws err
                 
@@ -196,7 +232,7 @@ namespace ZE {
 
             if (comp.splits){
                 for (uint32_t i = 0; i < comp.numchildren; ++i){
-                    for (VertexUI v: GetVerts(comp.children[i])){
+                    for (VertexUI v: GetVerts(comp.children[i], updateoffsetandsize)){
                         verts.push_back(v);
                     }
                 }
@@ -206,19 +242,29 @@ namespace ZE {
             UIll::AddSquare(pos, size, comp.style.tex, comp.style.col, verts);    
             
             printf(
-                "component level = %lu, (%f, %f)\n"
+                "component level = %lu, (%f, %f), ind = %d\n"
                 "-----\n",
 
-                comp.path.size(), pos.x, pos.y
+                comp.path.size(), pos.x, pos.y, comp.ind
             );
             return verts;
         }
-        void Redraw(){
-            data = GetVerts(root);
+        void Redraw( uint32_t *path, size_t pathsize, bool updateoffsetandsize = false ){
+            Component& c = root;
+
+            for (uint32_t i = 0; i < pathsize; ++i){
+                c = c.children[path[i]];
+            }
+            printf("fegtrhytrertgetr\n");
+            data = GetVerts( c, updateoffsetandsize );
             uib->UpdateMemory(data.data(), data.size(), 0);
+
             printf("number of verts %lu\n", data.size());
         }
-
+        void Redraw( ){
+            Redraw( nullptr, 0, true );
+        }
+    
         UIBuffer *uib;
         Component root;
         private:
