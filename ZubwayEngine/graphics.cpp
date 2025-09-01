@@ -1223,6 +1223,28 @@ int32_t GraphicsWindow::CreatePipeline( void ){
         .minDepthBounds = 0.f,
         .maxDepthBounds = 1.f
     };
+    VkPipelineDepthStencilStateCreateInfo depthstencilCI2 = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .depthTestEnable = VK_FALSE,
+        .depthWriteEnable = VK_FALSE,
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_TRUE,
+        .front = (VkStencilOpState){
+            .failOp = VK_STENCIL_OP_KEEP,
+            .passOp = VK_STENCIL_OP_REPLACE,
+            .depthFailOp = VK_STENCIL_OP_KEEP,
+            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .compareMask = 0xff,
+            .writeMask = 0xff,
+            .reference = 1,
+        },
+        .back = {},
+        .minDepthBounds = 0.f,
+        .maxDepthBounds = 1.f
+    };
 
     VkPipelineColorBlendAttachmentState colBlendAttachments[] = {
         {
@@ -1326,7 +1348,7 @@ int32_t GraphicsWindow::CreatePipeline( void ){
             .pViewportState = &plViewportCI,
             .pRasterizationState = &plRasterizationCI,
             .pMultisampleState = &multisampleCI,
-            .pDepthStencilState = &depthstencilCI,
+            .pDepthStencilState = &depthstencilCI2,
             .pColorBlendState = &plColorBlendingCI,
             .layout = pipelinelayouts[1],
             .renderPass = rp,

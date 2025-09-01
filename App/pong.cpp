@@ -450,12 +450,14 @@ int main( void ){
     };
     ui.Redraw();
 
-    energybarfg.style.col = {0.0, 0.5, 0.3,1 };
+    // energybarfg.style.col = {0.0, 0.5, 0.3,1 };
+    // energybarbg.style.col = {0.5, 0.5, 0.3,1 };
 
-    uint32_t path[] = {
-        0, 0
-    };
-    ui.Redraw( path, 2, false );
+
+    // uint32_t path[] = {
+    //     0, 0, 0
+    // };
+    // ui.Redraw( path, 0, false );
 
     printf("number of children %d\n", ui.GetSizeOfTree(ui.root));
 

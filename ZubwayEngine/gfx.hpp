@@ -228,6 +228,10 @@ namespace ZE {
                 };
                 //printf("path step %u, index %u | x=%f, y=%f\n", i, comp.path[i], posoffset.x, posoffset.y );
             }
+            Vector2 pos = {comp.style.box.x + posoffset.x, comp.style.box.y + posoffset.y};
+            Vector2 size = {comp.style.box.w, comp.style.box.h};
+            UIll::AddSquare(pos, size, comp.style.tex, comp.style.col, verts);    
+            
             printf("number of children = %u\n", comp.numchildren);
 
             if (comp.splits){
@@ -237,9 +241,6 @@ namespace ZE {
                     }
                 }
             }
-            Vector2 pos = {comp.style.box.x + posoffset.x, comp.style.box.y + posoffset.y};
-            Vector2 size = {comp.style.box.w, comp.style.box.h};
-            UIll::AddSquare(pos, size, comp.style.tex, comp.style.col, verts);    
             
             printf(
                 "component level = %lu, (%f, %f), ind = %d\n"
