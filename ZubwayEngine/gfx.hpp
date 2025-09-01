@@ -199,12 +199,10 @@ namespace ZE {
             };
             return total;
         }
-        std::vector<VertexUI> GetVerts( Component& comp, bool updateoffsetandsize = false ){
-            static uint32_t _ind = 0;
+        std::vector<VertexUI> GetVerts( Component& comp, Vector2 offset, bool updateoffsetandsize = false ){
             bool cond = comp.path.size() == 0 && updateoffsetandsize;
             if (cond){
                 printf("Recalculating UI...\n");
-                _ind = 0;
             }
             else {
                 //printf("\n");
@@ -215,50 +213,35 @@ namespace ZE {
 
             std::vector<VertexUI> verts;
 
-            Vector2 posoffset = {0, 0};
-            Component *offsetcomp = &root;
-            printf("-----\nProcessing component, deep %lu\n", comp.path.size());
-            for (uint32_t i = 0; i < comp.path.size(); ++i){
-                if (i == comp.path.size()-1) continue; // This is kinda ugly but `for (uint32_t i = 0; i < comp.path.size()-1; ++i)` throws err
-                
-                offsetcomp = &offsetcomp->children[comp.path[i]];
-                posoffset += {
-                    offsetcomp->style.box.x,
-                    offsetcomp->style.box.y
-                };
-                //printf("path step %u, index %u | x=%f, y=%f\n", i, comp.path[i], posoffset.x, posoffset.y );
-            }
-            Vector2 pos = {comp.style.box.x + posoffset.x, comp.style.box.y + posoffset.y};
+            Vector2 pos = {comp.style.box.x + offset.x, comp.style.box.y + offset.y};
             Vector2 size = {comp.style.box.w, comp.style.box.h};
             UIll::AddSquare(pos, size, comp.style.tex, comp.style.col, verts);    
             
-            printf("number of children = %u\n", comp.numchildren);
-
             if (comp.splits){
                 for (uint32_t i = 0; i < comp.numchildren; ++i){
-                    for (VertexUI v: GetVerts(comp.children[i], updateoffsetandsize)){
+                    for (VertexUI v: GetVerts(comp.children[i], pos, updateoffsetandsize)){
                         verts.push_back(v);
                     }
                 }
             }
             
-            printf(
-                "component level = %lu, (%f, %f), ind = %d\n"
-                "-----\n",
-
-                comp.path.size(), pos.x, pos.y, comp.ind
-            );
             return verts;
         }
         void Redraw( uint32_t *path, size_t pathsize, bool updateoffsetandsize = false ){
             Component& c = root;
-
+            Vector2 offset = {0, 0};
+            uint32_t dataoffset = 0;
             for (uint32_t i = 0; i < pathsize; ++i){
+                offset += {
+                    c.style.box.x,
+                    c.style.box.y
+                };
+                
                 c = c.children[path[i]];
             }
-            printf("fegtrhytrertgetr\n");
-            data = GetVerts( c, updateoffsetandsize );
-            uib->UpdateMemory(data.data(), data.size(), 0);
+
+            data = GetVerts( c, offset, updateoffsetandsize );
+            uib->UpdateMemory(data.data(), data.size(), 1);
 
             printf("number of verts %lu\n", data.size());
         }
