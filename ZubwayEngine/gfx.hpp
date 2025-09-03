@@ -2,6 +2,9 @@
 #include "thing.hpp"
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <vector>
 #if !defined( __GFX_HPP )
 #define       __GFX_HPP
 
@@ -180,10 +183,9 @@ namespace ZE {
             if (c1.path.size() != c2.path.size())
                 return 0;
 
-            for (uint32_t i = 0; i < c1.path.size(); ++i){
+            for (uint32_t i = 0; i < c1.path.size(); ++i)
                 if (c1.path[i] != c2.path[i])
                     return 0;
-            }
 
             return 1;
         }
@@ -196,6 +198,19 @@ namespace ZE {
                         total += GetSizeOfTree( comp.children[i] );
                     }
                 }
+            };
+            return total;
+        }
+        uint32_t GetSizeOfTree( const Component& comp, const Component& until ){
+            uint32_t total = 0;
+            if (comp.active){
+                if (ComparePaths(comp, until))
+                    return total;
+
+                total += 1;
+                if (comp.splits)
+                    for (uint32_t i = 0; i < comp.numchildren; ++i)
+                        total += GetSizeOfTree( comp.children[i], until );
             };
             return total;
         }
@@ -228,20 +243,27 @@ namespace ZE {
             return verts;
         }
         void Redraw( uint32_t *path, size_t pathsize, bool updateoffsetandsize = false ){
-            Component& c = root;
+            Component c = root;
             Vector2 offset = {0, 0};
             uint32_t dataoffset = 0;
-            for (uint32_t i = 0; i < pathsize; ++i){
-                offset += {
-                    c.style.box.x,
-                    c.style.box.y
-                };
-                
-                c = c.children[path[i]];
+
+            if (pathsize > 0){
+                for (uint32_t i = 0; i < pathsize; ++i){
+                    offset += {
+                        c.style.box.x,
+                        c.style.box.y
+                    };
+                    
+                    c = c.children[path[i]];
+                }
+                dataoffset = GetSizeOfTree(root, c ) * 6;
+            }
+            else {
+
             }
 
             data = GetVerts( c, offset, updateoffsetandsize );
-            uib->UpdateMemory(data.data(), data.size(), 1);
+            uib->UpdateMemory( data.data(), data.size(), dataoffset );
 
             printf("number of verts %lu\n", data.size());
         }
