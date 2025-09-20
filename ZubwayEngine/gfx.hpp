@@ -157,11 +157,9 @@ namespace ZE {
             bool splits;
             Component *children;
             uint32_t numchildren;
-
-            uint32_t ind;
         };
 
-        UI( GraphicsWindow *wnd, Vector2 screensize ){
+        UI( GraphicsWindow *wnd, Vector2 screensize, uint32_t numberchild ){
             data = std::vector<VertexUI>();
             uib = new UIBuffer( wnd, data, 4000 );
 
@@ -173,7 +171,7 @@ namespace ZE {
                     ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
 
                 },
-                true, new Component, 1 };
+                true, new Component[numberchild], numberchild };
         }
         ~UI(){
             delete uib;
@@ -204,25 +202,17 @@ namespace ZE {
         uint32_t GetSizeOfTree( const Component& comp, const Component& until ){
             uint32_t total = 0;
             if (comp.active){
+                total += 1;
                 if (ComparePaths(comp, until))
                     return total;
 
-                total += 1;
                 if (comp.splits)
                     for (uint32_t i = 0; i < comp.numchildren; ++i)
                         total += GetSizeOfTree( comp.children[i], until );
             };
             return total;
         }
-        std::vector<VertexUI> GetVerts( Component& comp, Vector2 offset, bool updateoffsetandsize = false ){
-            bool cond = comp.path.size() == 0 && updateoffsetandsize;
-            if (cond){
-                printf("Recalculating UI...\n");
-            }
-            else {
-                //printf("\n");
-            }
-
+        std::vector<VertexUI> GetVerts( Component& comp, Vector2 offset ){
             if (!comp.active)
                 return std::vector<VertexUI>(0);
 
@@ -234,7 +224,7 @@ namespace ZE {
             
             if (comp.splits){
                 for (uint32_t i = 0; i < comp.numchildren; ++i){
-                    for (VertexUI v: GetVerts(comp.children[i], pos, updateoffsetandsize)){
+                    for (VertexUI v: GetVerts(comp.children[i], pos)){
                         verts.push_back(v);
                     }
                 }
@@ -242,7 +232,7 @@ namespace ZE {
             
             return verts;
         }
-        void Redraw( uint32_t *path, size_t pathsize, bool updateoffsetandsize = false ){
+        void Redraw( uint32_t *path, size_t pathsize ){
             Component c = root;
             Vector2 offset = {0, 0};
             uint32_t dataoffset = 0;
@@ -262,13 +252,11 @@ namespace ZE {
 
             }
 
-            data = GetVerts( c, offset, updateoffsetandsize );
+            data = GetVerts( c, offset );
             uib->UpdateMemory( data.data(), data.size(), dataoffset );
-
-            printf("number of verts %lu\n", data.size());
         }
         void Redraw( ){
-            Redraw( nullptr, 0, true );
+            Redraw( nullptr, 0 );
         }
     
         UIBuffer *uib;
