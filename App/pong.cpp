@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <ctime>
 #include <iostream>
+#include <iterator>
 #include <limits>
 //#include <memory> Currently unused
 #include <vector>
@@ -295,10 +296,47 @@ int main( void ){
         MVP *mvps;
     };
     Trees trees(mvps.data());
-    uint32_t numtrees = 15;
+    uint32_t numtrees = 30;
     for (uint32_t i = 0; i < numtrees; ++i){
         trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 60 * 4.f);
     }
+
+    struct Fella {
+        // About fella
+        const char *name;
+        float age;
+        float health;
+        float respect;
+
+        // Needs
+        float energy;
+        float hunger, hydration;
+        float waste;
+
+        // Attributes
+        float fit;
+
+        // Personality
+        float selfless;
+        float artistic;
+
+        struct Task {
+            enum class Type{
+                NONE, RESTING, SEEKING 
+            } type;
+            float priority;
+            union {
+                struct {
+                } none;
+                struct {
+                } rest;
+                struct {
+                    // Some spicification for items, idk yet
+                } seek;
+            };
+        } tasks[5];
+
+    };
 
     class Tribe {
     public:
@@ -335,7 +373,7 @@ int main( void ){
 
             ZE::Visual::AddQuad(
                 {0, 0, 0.5, 1.0},
-                ZE::Visual::TextureMapToBox2D({16, 8}, 0, 0),
+                ZE::Visual::TextureMapToBox2D({16, 8}, 1, 0),
                 0, id,
                 MatrixTranslate(0, -0.5, 0),
                 dq.verts, dq.inds
@@ -374,7 +412,6 @@ int main( void ){
                     if (closesttreedist < 0.1){
                         f.pos = closesttree.pos;
                         closesttreedist = 0.f;
-                        closesttree.age =  60 * 240;
                         f.energy = 100.f;
                         f.foodsearching = false;
                     }
@@ -391,7 +428,7 @@ int main( void ){
                     else if (zdist > 0.)
                         f.pos.z -= std::max<float>(0.05, (zdist * -1));
 
-                }
+                } 
                 else{
                     f.pos.x += (GetRandom() - 500) / (100.f * 60.f);
                     f.pos.z += (GetRandom() - 500) / (100.f * 60.f);
@@ -413,52 +450,36 @@ int main( void ){
     theFirst.SpawnFella("cleet");
     theFirst.SpawnFella("fueller");
 
-    ZE::UI ui( mainWnd, {SCREEN_WIDTH, SCREEN_HEIGHT} );
+    ZE::UI ui( mainWnd, {SCREEN_WIDTH, SCREEN_HEIGHT}, 3 );
 
     Vector4 bgcol = { 1, 0.95, 0.9, 1.0 };
-    Vector4 energycol1 = { 0.0, 0.6, 0.0, 1.0 };
-    Vector4 energycol2 = { 0.8, 0.0, 0.0, 1.0 };
+    Vector4 red = { 1.0, 0.0, 0.0, 1.0 };
+    Vector4 green = { 0.0, 1.0, 0.0, 1.0 };
+    Vector4 blue = { 0.0, 0.0, 1.0, 1.0 };
+    Vector4 black = { 0, 0, 0, 1 };
+    Vector4 clear = { 0, 0, 0, 0 };
 
-    ZE::UI::Component& menu1 =
+    ZE::UI::Component& energybars =
     ui.root.children[0] = {
         true, {0},
+        {},
+        true, new ZE::UI::Component[30], 30
+    };
+    energybars.children[0] = {
+        true, { 0, 0 },
         {
-            { 10, 10, 450, 600 },
-            bgcol,
+            { 0, 0, 20, 20 },
+            red,
             ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
         },
-        true, new ZE::UI::Component, 1
+        false, new ZE::UI::Component[2], 2
     };
-    ZE::UI::Component& energybarbg =
-    ui.root.children[0].children[0] = {
-        true, {0, 0},
-        {
-            { 25, 10, 400, 100 },
-            energycol2,
-            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
-        },
-        true, new ZE::UI::Component, 1
-    };
-    ZE::UI::Component& energybarfg =
-    ui.root.children[0].children[0].children[0] = {
-        true, {0, 0, 0},
-        {
-            { 0, 0, 200, 90 },
-            energycol1,
-            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
-        }
-    };
+
     ui.Redraw();
-
-    energybarfg.style.col = {0.3, 0.0, 0.3,1 };
-    energybarfg.style.box.h+=10;
-    energybarbg.style.col = {0.5, 0.5, 0.3,1 };
-
-
     uint32_t path[] = {
         0, 0, 0
     };
-    ui.Redraw( path, 2, false );
+    ui.Redraw( path, 1 );
 
     printf("number of children %d\n", ui.GetSizeOfTree(ui.root));
 
