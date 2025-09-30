@@ -8,6 +8,19 @@
 #if !defined( __GFX_HPP )
 #define       __GFX_HPP
 
+#define UI_RED   { 1.0, 0.0, 0.0, 1.0 }
+#define UI_GREEN { 0.0, 1.0, 0.0, 1.0 }
+#define UI_BLUE  { 0.0, 0.0, 1.0, 1.0 }
+#define UI_BLACK { 0.0, 0.0, 0.0, 1.0 }
+#define UI_WHITE { 1.0, 1.0, 1.0, 1.0 }
+
+#define UI_CLEAR     { 0, 0, 0, 0 }
+#define UI_REDa(x)   { 1.0, 0.0, 0.0, x }
+#define UI_GREENa(x) { 0.0, 1.0, 0.0, x }
+#define UI_BLUEa(x)  { 0.0, 0.0, 1.0, x }
+#define UI_BLACKa(x) { 0.0, 0.0, 0.0, x }
+#define UI_WHITEa(x) { 1.0, 1.0, 1.0, x }
+
 #include "box2D.hpp"
 #include "graphics.hpp"
 

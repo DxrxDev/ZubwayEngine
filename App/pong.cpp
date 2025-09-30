@@ -3,8 +3,7 @@
 #include <cstdint>
 #include <ctime>
 #include <iostream>
-#include <iterator>
-#include <limits>
+#include <queue>
 //#include <memory> Currently unused
 #include <vector>
 #include <cstring>
@@ -30,6 +29,9 @@ float millisecondsSinceLastFrame;
 #define MAX_TRANSFORMS 1024
 
 GraphicsWindow *mainWnd;
+
+float deltaT = 0;
+float desiredfps = 60.0;
 
 void ResetRandom( ){
     srand(time(nullptr));
@@ -301,6 +303,93 @@ int main( void ){
         trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 60 * 4.f);
     }
 
+    struct FellaInfoUI{
+        FellaInfoUI(ZE::UI *ui, std::vector<uint32_t> parentpath, Vector2 pos){
+            setupworked = false;
+            path = parentpath;
+            root = &ui->root;
+            for (uint32_t step: parentpath){
+                root = &root->children[step];
+            }
+
+            
+            for (uint32_t i = 0; i < root->numchildren; ++i){
+                if (root->children[i].active == false){
+                    path.push_back(i);
+                    root = &root->children[i];
+
+                    root->active = true;
+                    root->path = path;
+                    root->splits = true;
+                    root->children = new ZE::UI::Component[4];
+                    root->numchildren = 4;
+
+                    root->style = (ZE::UI::Component::Style){
+                        {pos.x, pos.y, 40, (10 * 4) + (5*5)}, UI_WHITE, 
+                        ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
+                    };
+
+                    for (uint32_t i = 0; i < 4; ++i){
+                        Vector4 colour;
+                        switch (i){
+                        case 0:{
+                            colour = {0.8, 0.6, 0.1, 1.0};
+                        } break;
+                        case 1:{
+                            colour = {0.3, 0.2, 0.05, 1.0};
+                        } break;
+                        case 2:{
+                            colour = {0.2, 0.5, 0.7, 1.0};
+                        } break;
+                        case 3:{
+                            colour = {0.05, 0.15, 0.25, 1.0};
+                        } break;
+                        }
+
+                        root->children[i].active = true;
+                        root->children[i].path = root->path; root->children[i].path.push_back(i);
+                        root->children[i].splits = true;
+                        root->children[i].children = new ZE::UI::Component;
+                        root->children[i].numchildren = 1;
+
+                        root->children[i].style = {
+                            {5, 5.f + (i * 15.f), 30, 10 },
+                            {0.5, 0.5, 0.5, 1.0f},
+                            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
+                        };
+
+                        root->children[i].children[0].active = true;
+                        root->children[i].children[0].path = root->children[i].path; root->children[i].children[0].path.push_back(0);
+
+                        root->children[i].children[0].style = {
+                            {0, 0, 30, 10 },
+                            colour,
+                            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
+                        };
+                    }
+
+                    printf("");
+
+                    break;
+                }
+            }
+
+            printf("isrgbirgb %lu %lu, %u\n", parentpath.size(), path.size(), path[path.size()-1]);
+
+            setupworked = true;
+        }
+
+        void UpdateBars( float vals[4] ){
+            for (uint32_t i = 0; i < 4; ++i){
+                root->children[i].children[0].style.box = {0, 0, 30 * vals[i], 10 };
+            }
+        }
+
+        bool setupworked;
+        ZE::UI::Component *root;
+        std::vector<uint32_t> path;
+    };
+
     struct Fella {
         // About fella
         const char *name;
@@ -308,10 +397,13 @@ int main( void ){
         float health;
         float respect;
 
+        Vector3 position;
+
         // Needs
-        float energy;
-        float hunger, hydration;
-        float waste;
+        float fatigue;
+        float hungry, thirsty;
+        float gottago;
+        float boredom;
 
         // Attributes
         float fit;
@@ -322,7 +414,7 @@ int main( void ){
 
         struct Task {
             enum class Type{
-                NONE, RESTING, SEEKING 
+                NONE, RESTING, SEEKING, SOCIALISING
             } type;
             float priority;
             union {
@@ -333,23 +425,25 @@ int main( void ){
                 struct {
                     // Some spicification for items, idk yet
                 } seek;
-            };
-        } tasks[5];
+                struct {
 
+                } socialise;
+            };
+        } doing;
+
+        // Engine
+        struct {
+            float
+                energy, hunger, thirsty, gottago, boredom;
+        } brain;
+
+        uint64_t trsid;
+
+        FellaInfoUI* eb;
     };
 
     class Tribe {
     public:
-        struct Fella{
-            const char *name;
-            Vector3 pos;
-            Vector3 targetPos;
-            float energy;
-            bool foodsearching;
-            bool showingstamina;
-
-            uint32_t trs;
-        };
         Tribe( ZE::DataStructures::IDManager<1024> &idman, MVP *mvps ): idman(idman), mvps(mvps){
             // trsid = idman.GenerateID();
             dq = { std::vector<Vertex>(), std::vector<uint16_t>(), nullptr, nullptr };
@@ -360,14 +454,14 @@ int main( void ){
         }
         ~Tribe() = default;
 
-        void SpawnFella( const char *name ){
+        void SpawnFella( const char *name, FellaInfoUI *comp ){
             uint32_t id = (uint32_t)idman.GenerateID();
             fellas.push_back(
                 (Fella){
-                    name,
-                    {0, 0, 0}, {0, 0, 0},
-                    100, 0, 0,
-                    id
+                    name, 0, 100., 100., {0, 0},
+                    0., 0., 0., 0., 0.,
+                    1, 1, 1, {},
+                    { 1, 1, 1, 1, 1 }, id, comp
                 }
             );
 
@@ -396,8 +490,8 @@ int main( void ){
 
                 for (uint32_t i = 0; i < treestates.size(); ++i){
                     float nexttreedist = sqrt(
-                        (f.pos.x - treestates[i].pos.x) * (f.pos.x - treestates[i].pos.x) +
-                        (f.pos.z - treestates[i].pos.z) * (f.pos.z - treestates[i].pos.z)
+                        (f.position.x - treestates[i].pos.x) * (f.position.x - treestates[i].pos.x) +
+                        (f.position.z - treestates[i].pos.z) * (f.position.z - treestates[i].pos.z)
                     );
                     if (nexttreedist < closesttreedist){
                         closesttreedist = nexttreedist;
@@ -405,35 +499,68 @@ int main( void ){
                     }
                 }
 
-                f.energy -= 0.5;
-                if (f.energy <= 0){
-                    f.foodsearching = true;
+                f.fatigue += deltaT*0.5;
+                f.hungry += deltaT*2.0;
 
-                    if (closesttreedist < 0.1){
-                        f.pos = closesttree.pos;
-                        closesttreedist = 0.f;
-                        f.energy = 100.f;
-                        f.foodsearching = false;
+                float x = f.fatigue;
+                float restdesire =
+                    (x >= 90.0) ? 100. * f.brain.energy :
+                    (x >= 75.0) ? 50.0 * f.brain.energy :
+                    (x >= 50.0) ? 10.0 * f.brain.energy:
+                                  0.0;
+                ;
+
+                x = f.hungry;
+                float hungerdesire =  
+                    (x >= 90.0) ? 100. * f.brain.hunger :
+                    (x >= 75.0) ? 50.0 * f.brain.hunger :
+                    (x >= 50.0) ? 10.0 * f.brain.hunger  :
+                                  0.0
+                ;
+                
+                x = f.thirsty;
+                float thirstdesire =  
+                    (x >= 90.0) ? 100. * f.brain.thirsty :
+                    (x >= 75.0) ? 50.0 * f.brain.thirsty :
+                    (x >= 50.0) ? 10.0 * f.brain.thirsty :
+                                  0.0
+                ;
+
+                x = f.gottago;
+                float gottagodesire =  
+                    (x >= 90.0) ? 100. * f.brain.gottago :
+                    (x >= 75.0) ? 50.0 * f.brain.gottago :
+                    (x >= 50.0) ? 10.0 * f.brain.gottago  :
+                                  0.0
+                ;
+
+                float needs[4] = {
+                    restdesire, hungerdesire, thirstdesire, gottagodesire
+                };
+                bool sorted = false;
+                while (!sorted){
+                    sorted = true;
+                    for (uint32_t i = 0; i < 3; ++i){
+                        if (needs[i] > needs[i+1]){
+                            std::swap(needs[0], needs[1]);
+                            sorted = false;
+                        }
                     }
-                    float xdist = f.pos.x - closesttree.pos.x;
-                    float zdist = f.pos.z - closesttree.pos.z;
-
-                    if (xdist < 0.)
-                        f.pos.x += std::min<float>(0.05, (xdist * -1));
-                    else if (xdist > 0.)
-                        f.pos.x -= std::max<float>(0.05, (xdist * -1));
-
-                    if (zdist < 0.)
-                        f.pos.z += std::min<float>(0.05, (zdist * -1));
-                    else if (zdist > 0.)
-                        f.pos.z -= std::max<float>(0.05, (zdist * -1));
-
-                } 
-                else{
-                    f.pos.x += (GetRandom() - 500) / (100.f * 60.f);
-                    f.pos.z += (GetRandom() - 500) / (100.f * 60.f);
                 }
-                mvps[f.trs] = {MatrixTranslate(f.pos.x, 0, f.pos.z)};
+
+                float needs2[4] = {
+                    f.fatigue / 100.f,
+                    f.hungry / 100.f,
+                    f.thirsty / 100.f,
+                    f.gottago / 100.f,
+                };
+                f.eb->UpdateBars(needs2);
+
+                {
+                    f.position.x += (GetRandom() - 500) / (100.f * 60.f);
+                    f.position.z += (GetRandom() - 500) / (100.f * 60.f);
+                }
+                mvps[f.trsid] = {MatrixTranslate(f.position.x, 0, f.position.z)};
             }
         }
         
@@ -444,20 +571,7 @@ int main( void ){
         uint32_t trsid;
     };
 
-    Tribe theFirst(transformIDs, mvps.data());
-    theFirst.SpawnFella("philla");
-    theFirst.SpawnFella("merrin");
-    theFirst.SpawnFella("cleet");
-    theFirst.SpawnFella("fueller");
-
     ZE::UI ui( mainWnd, {SCREEN_WIDTH, SCREEN_HEIGHT}, 3 );
-
-    Vector4 bgcol = { 1, 0.95, 0.9, 1.0 };
-    Vector4 red = { 1.0, 0.0, 0.0, 1.0 };
-    Vector4 green = { 0.0, 1.0, 0.0, 1.0 };
-    Vector4 blue = { 0.0, 0.0, 1.0, 1.0 };
-    Vector4 black = { 0, 0, 0, 1 };
-    Vector4 clear = { 0, 0, 0, 0 };
 
     ZE::UI::Component& energybars =
     ui.root.children[0] = {
@@ -465,15 +579,17 @@ int main( void ){
         {},
         true, new ZE::UI::Component[30], 30
     };
-    energybars.children[0] = {
-        true, { 0, 0 },
-        {
-            { 0, 0, 20, 20 },
-            red,
-            ZE::Visual::TextureMapToBox2D({16, 16}, 0, 0)
-        },
-        false, new ZE::UI::Component[2], 2
-    };
+    FellaInfoUI f0 = FellaInfoUI(&ui, {0}, {0, 0});
+    FellaInfoUI f1 = FellaInfoUI(&ui, {0}, {0, 0});
+    FellaInfoUI f2 = FellaInfoUI(&ui, {0}, {0, 0});
+    FellaInfoUI f3 = FellaInfoUI(&ui, {0}, {0, 0});
+
+    Tribe theFirst(transformIDs, mvps.data());
+
+    theFirst.SpawnFella("philla",  &f0);
+    theFirst.SpawnFella("merrin",  &f1);
+    theFirst.SpawnFella("cleet",   &f2);
+    theFirst.SpawnFella("fueller", &f3);
 
     ui.Redraw();
     uint32_t path[] = {
@@ -496,7 +612,6 @@ int main( void ){
     bool running = true;
     std::chrono::time_point<std::chrono::high_resolution_clock> t1, t2;
     float desiredMilliCount = 16.667;
-    float deltaT = 0;
     millisecondsSinceLastFrame = 0;
 
     std::cout << "Entering main loop !!!" << std::endl;
@@ -565,13 +680,19 @@ int main( void ){
             //{ProgressBar.vb, ProgressBar.ib},
         };
 
+        uint32_t path[] = {
+            0
+        };
+        ui.Redraw( path, 1);
+        //ui.Redraw();
+
         wnd.DrawIndexed( vis, *ui.uib, ub1, vi, cam.GetView() * cam.GetProj() );
 
         t2 = std::chrono::high_resolution_clock::now();
 
         millisecondsSinceLastFrame =
             std::chrono::duration< float, std::milli> (t2 - t1).count();
-        deltaT = millisecondsSinceLastFrame / desiredMilliCount;
+        deltaT = (millisecondsSinceLastFrame / desiredMilliCount) / desiredfps;
     }
 
     std::cout << "Quitting Game !!!" << std::endl;
