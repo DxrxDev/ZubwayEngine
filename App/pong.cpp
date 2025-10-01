@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <ctime>
 #include <iostream>
 #include <queue>
@@ -298,7 +299,7 @@ int main( void ){
         MVP *mvps;
     };
     Trees trees(mvps.data());
-    uint32_t numtrees = 30;
+    uint32_t numtrees = 15;
     for (uint32_t i = 0; i < numtrees; ++i){
         trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 60 * 4.f);
     }
@@ -480,7 +481,8 @@ int main( void ){
         }
     
         void Update( std::vector<WindowEvent> events, std::vector<Trees::state>& treestates ){
-            for (Fella& f: fellas){
+            for (uint32_t fi = 0; fi < fellas.size(); ++fi ){
+                Fella& f = fellas[fi];
                 Trees::state closesttree = treestates[0];
 
                 float closesttreedist = INFINITY;/*sqrt(
@@ -542,7 +544,9 @@ int main( void ){
                     sorted = true;
                     for (uint32_t i = 0; i < 3; ++i){
                         if (needs[i] > needs[i+1]){
-                            std::swap(needs[0], needs[1]);
+                            float t = needs[i];
+                            needs[i] = needs[i+1];
+                            needs[i+1] = t;
                             sorted = false;
                         }
                     }
@@ -617,13 +621,12 @@ int main( void ){
     std::cout << "Entering main loop !!!" << std::endl;
 
     float cposx = 0, cposy = 0;
-    
+
     while (running){ t1 = std::chrono::high_resolution_clock::now();
         std::vector<WindowEvent> events = wnd.GetEvents();
         running = wnd.IsRunning();
-
-        //printf( "-(FRAME)-----------------------\n" );
-
+           
+           
         ////////////////////////////
         /* =====(LOCIG STUFF)=====*/
         ////////////////////////////
@@ -631,17 +634,17 @@ int main( void ){
             if (e.type == WindowEventType::Key) {
                 if (e.key.pressed){
                     switch( e.key.key ){
-                    case 'q':{
-                        running = false;
-                    } break;
-                    case 'p':{
-                        gamepaused = !gamepaused;
-                    } break;
+                        case 'q':{
+                            running = false;
+                        } break;
+                        case 'p':{
+                            gamepaused = !gamepaused;
+                        } break;
                     }
                 }
             }
         }
-
+                      
         if (wnd.IsPressed('w')){
             cposy -= 0.1;
         }
@@ -654,22 +657,13 @@ int main( void ){
         if (wnd.IsPressed('d')){
             cposx += 0.1;
         }
-
         cam.SetPos((Vector3){cposx, -5.0, cposy});
-
-        //mvps[bartr1].model = MatrixTranslate(philla.pos.x, philla.pos.y - 1.0, philla.pos.z);
-
-        // float bartr2offset = 
-        //     (1.0 - (philla.energy / 100.0f)) * 0.3
-        // ;
-        // mvps[bartr2].model = MatrixScale(philla.energy / 100.0, 1, 1) * MatrixTranslate(philla.pos.x - bartr2offset, philla.pos.y - 1.0, philla.pos.z);
-
-        trees.Update();
-
-        theFirst.Update( events, trees.treestates );
-
-        ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
+           
         
+        trees.Update();
+        theFirst.Update( events, trees.treestates );
+        ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
+           
         //////////////////////////////////////
         /* =====( GRAPHICS PROCESSING )=====*/
         //////////////////////////////////////
@@ -679,22 +673,21 @@ int main( void ){
             {trees.dq.vb, trees.dq.ib},
             //{ProgressBar.vb, ProgressBar.ib},
         };
-
+           
         uint32_t path[] = {
             0
         };
         ui.Redraw( path, 1);
-        //ui.Redraw();
-
+           
         wnd.DrawIndexed( vis, *ui.uib, ub1, vi, cam.GetView() * cam.GetProj() );
-
+           
         t2 = std::chrono::high_resolution_clock::now();
-
+           
         millisecondsSinceLastFrame =
-            std::chrono::duration< float, std::milli> (t2 - t1).count();
+        std::chrono::duration< float, std::milli> (t2 - t1).count();
         deltaT = (millisecondsSinceLastFrame / desiredMilliCount) / desiredfps;
     }
-
+    
     std::cout << "Quitting Game !!!" << std::endl;
     return 0;
 }

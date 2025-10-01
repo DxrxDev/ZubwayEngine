@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <xcb/xcb_icccm.h>
@@ -285,6 +286,16 @@ public:
                     };
                     
                     ret.push_back( ev );
+                } break;
+                case XCB_CONFIGURE_NOTIFY:{
+                    xcb_configure_notify_event_t e = *(xcb_configure_notify_event_t*)event;
+                    printf(
+                        "=====\n"   
+                        "%d %d %d %d\n"
+                        "%d %d\n",
+                        e.x, e.y, e.width, e.height,
+                        e.border_width, e.override_redirect                      
+                    );
                 } break;
                 default: {
                     std::cout << "Unhandled Window Event: " << (event->response_type & ~0x80) << std::endl;
