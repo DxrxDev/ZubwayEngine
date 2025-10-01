@@ -109,6 +109,15 @@ int main( void ){
     // };
     class Trees{
     public:
+        enum class Sprite {
+            SEED, SAPLING, BUSH, TREE, FLOWERING_TREE 
+        };
+        struct spriteupdate{
+            uint32_t index;
+            Sprite sprite;
+            float x, y, z;
+        };
+
         Trees(MVP *mvps) : mvps(mvps){
             highestid = nullptr;
             maxnumtrees = 100;
@@ -177,39 +186,28 @@ int main( void ){
                 return;
             std::vector<Vector3> newtreespos;
             std::vector<uint32_t> toremove;
+            std::vector<spriteupdate> spriteupdates;
             for (state& s: treestates){
                 if (!trees[s.id])
                     continue;
 
                 s.age += deltaT;
                 if (s.age > 2.0 && s.sprite == Sprite::SEED){
-                    std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
-                    ZE::Visual::AddQuad(
-                        (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 5, 0),
-                        0, 0, MatrixTranslate(s.pos.x, s.pos.y, s.pos.z),
-                        updatedsprite, _
-                    );
-                    const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
+                    spriteupdates.push_back({
+                        (uint32_t)s.id, Sprite::SAPLING, s.pos.x, s.pos.y, s.pos.z
+                    });
                     s.sprite = Sprite::SAPLING;
                 }
                 else if (s.age > 4.0 && s.sprite == Sprite::SAPLING){
-                    std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
-                    ZE::Visual::AddQuad(
-                        (Box2D){0, 0, 1, 1}, ZE::Visual::TextureMapToBox2D({8, 8}, 5, 1),
-                        0, 0, MatrixTranslate(s.pos.x, s.pos.y, s.pos.z),
-                        updatedsprite, _
-                    );
-                    const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
+                    spriteupdates.push_back({
+                        (uint32_t)s.id, Sprite::BUSH, s.pos.x, s.pos.y, s.pos.z
+                    });
                     s.sprite = Sprite::BUSH;
                 }
                 else if (s.age > 6.0 && s.sprite == Sprite::BUSH){
-                    std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
-                    ZE::Visual::AddQuad(
-                        (Box2D){0, 0, 1, 2}, ZE::Visual::TextureMapToBox2D({8, 4}, 6, 0),
-                        0, 0, MatrixTranslate(s.pos.x, s.pos.y - 0.5f, s.pos.z),
-                        updatedsprite, _
-                    );
-                    const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
+                    spriteupdates.push_back({
+                        (uint32_t)s.id, Sprite::TREE, s.pos.x, s.pos.y - 0.5f, s.pos.z
+                    });
                     s.sprite = Sprite::TREE;
                 }
                 if (s.age > 120.0){
@@ -221,13 +219,9 @@ int main( void ){
                 s.fruitcycle += deltaT;
 
                 if (s.fruitcycle > 10.0 && s.sprite == Sprite::TREE){
-                    std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
-                    ZE::Visual::AddQuad(
-                        (Box2D){0, 0, 1, 2}, ZE::Visual::TextureMapToBox2D({8, 4}, 7, 0),
-                        0, 0, MatrixTranslate(s.pos.x, s.pos.y - 0.5f, s.pos.z),
-                        updatedsprite, _
-                    );
-                    const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);   
+                    spriteupdates.push_back({
+                        (uint32_t)s.id, Sprite::FLOWERING_TREE, s.pos.x, s.pos.y - 0.5f, s.pos.z
+                    });  
                     s.sprite = Sprite::FLOWERING_TREE;
                 }
                 if (s.fruitcycle > 20.0 && s.sprite == Sprite::FLOWERING_TREE){
@@ -241,18 +235,15 @@ int main( void ){
                         });
                     }
                     s.fruitcycle = 0;
-                    std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
-                    ZE::Visual::AddQuad(
-                        (Box2D){0, 0, 1, 2}, ZE::Visual::TextureMapToBox2D({8, 4}, 6, 0),
-                        0, 0, MatrixTranslate(s.pos.x, s.pos.y - 0.5f, s.pos.z),
-                        updatedsprite, _
-                    );
-                    const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, s.id * 4);
+                    spriteupdates.push_back({
+                        (uint32_t)s.id, Sprite::TREE, s.pos.x, s.pos.y - 0.5f, s.pos.z
+                    });  
                     s.sprite = Sprite::TREE;
                 }
 
             }
 
+            SpriteUpdates(spriteupdates);
             for (uint32_t id: toremove){
                 RemoveTree( id );
             }
@@ -288,13 +279,37 @@ int main( void ){
                     newtreespos.size(), toremove.size()
                 );
         }
-        // Fruit LookForFruit(){
-            
-        // }
 
-        enum class Sprite {
-            SEED, SAPLING, BUSH, TREE, FLOWERING_TREE 
-        };
+        void SpriteUpdates(std::vector<spriteupdate> list){
+            for (spriteupdate su: list){
+                std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
+                Box2D spritebox;
+                Box2D treeshape;
+
+                switch (su.sprite){
+                case Sprite::SEED: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 4, 0); break;
+                case Sprite::SAPLING: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 5, 0); break;
+                case Sprite::BUSH: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 5, 1); break;
+                case Sprite::TREE: spritebox = ZE::Visual::TextureMapToBox2D({8, 4}, 6, 0); break;
+                case Sprite::FLOWERING_TREE: spritebox = ZE::Visual::TextureMapToBox2D({8, 4}, 7, 0); break;
+                }
+
+                if (su.sprite == Sprite::TREE || su.sprite == Sprite::FLOWERING_TREE)
+                    treeshape = (Box2D){0, 0, 1, 2};
+                else
+                    treeshape = (Box2D){0, 0, 1, 1};
+                
+
+                ZE::Visual::AddQuad(
+                    treeshape, spritebox,
+                    0, 0, MatrixTranslate(su.x, su.y, su.z),
+                    updatedsprite, _
+                );
+                const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, su.index * 4);
+            }
+        }
+
+        
         struct state {
             uint64_t id;
             float age;
