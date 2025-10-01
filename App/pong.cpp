@@ -281,8 +281,13 @@ int main( void ){
         }
 
         void SpriteUpdates(std::vector<spriteupdate> list){
-            for (spriteupdate su: list){
-                std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
+            std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
+            uint32_t beginindex = 0;
+            uint32_t lastindex = 0;
+            bool chaining = true;
+            for (uint32_t i = 0; i < list.size(); ++i){
+                spriteupdate su = list[i];
+
                 Box2D spritebox;
                 Box2D treeshape;
 
@@ -305,7 +310,20 @@ int main( void ){
                     0, 0, MatrixTranslate(su.x, su.y, su.z),
                     updatedsprite, _
                 );
-                const char *a = dq.vb->UpdateMemory(updatedsprite.data(), 4, su.index * 4);
+
+                if (chaining == false){
+                    beginindex = su.index;
+                    chaining = true;
+                }
+                if ((su.index-1) < lastindex || i == (list.size()-1)){
+                    printf("updating sprites %d %d\n", (su.index - beginindex), (su.index - beginindex) * 4);
+                    dq.vb->UpdateMemory(updatedsprite.data(), (su.index - beginindex ) * 4, beginindex);
+                    updatedsprite = std::vector<Vertex>();
+                    chaining = false;
+                }
+                else{
+                    lastindex = su.index;
+                }
             }
         }
 
