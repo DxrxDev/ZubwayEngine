@@ -281,52 +281,69 @@ int main( void ){
         }
 
         void SpriteUpdates(std::vector<spriteupdate> list){
-            std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
-            uint32_t beginindex = 0;
-            uint32_t lastindex = 0;
-            bool chaining = true;
-            for (uint32_t i = 0; i < list.size(); ++i){
+            if (list.size()==0) return;
+
+            std::vector<uint32_t> chains {1};
+            uint32_t lastindex = list[0].index;
+            for (uint32_t i = 1; i < list.size(); ++i){
                 spriteupdate su = list[i];
-
-                Box2D spritebox;
-                Box2D treeshape;
-
-                switch (su.sprite){
-                case Sprite::SEED: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 4, 0); break;
-                case Sprite::SAPLING: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 5, 0); break;
-                case Sprite::BUSH: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 5, 1); break;
-                case Sprite::TREE: spritebox = ZE::Visual::TextureMapToBox2D({8, 4}, 6, 0); break;
-                case Sprite::FLOWERING_TREE: spritebox = ZE::Visual::TextureMapToBox2D({8, 4}, 7, 0); break;
+                if (lastindex < (su.index-1)){
+                    chains.push_back(1);
                 }
+                else {
+                    chains[chains.size()-1] += 1;
+                }
+                lastindex = su.index;
+            }
 
-                if (su.sprite == Sprite::TREE || su.sprite == Sprite::FLOWERING_TREE)
-                    treeshape = (Box2D){0, 0, 1, 2};
-                else
-                    treeshape = (Box2D){0, 0, 1, 1};
+            printf("{");
+            for (uint32_t i: chains){
+                printf("%d, ", i);
+            }
+            printf("}\n");
+
+            uint32_t chainoffset = 0;
+            uint32_t firstindexoffset = list[0].index;
+            std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
+            for (uint32_t i = 0; i < chains.size(); ++i){
+                for (uint32_t j = 0; j < chains[i]; ++j){
+                    spriteupdate su = list[(chainoffset)+j];
+                    Box2D spritebox;
+                    Box2D treeshape;
+                    switch (su.sprite){
+                        case Sprite::SEED: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 4, 0); break;
+                        case Sprite::SAPLING: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 5, 0); break;
+                        case Sprite::BUSH: spritebox = ZE::Visual::TextureMapToBox2D({8, 8}, 5, 1); break;
+                        case Sprite::TREE: spritebox = ZE::Visual::TextureMapToBox2D({8, 4}, 6, 0); break;
+                        case Sprite::FLOWERING_TREE: spritebox = ZE::Visual::TextureMapToBox2D({8, 4}, 7, 0); break;
+                    }
+                    if (su.sprite == Sprite::TREE || su.sprite == Sprite::FLOWERING_TREE)
+                        treeshape = (Box2D){0, 0, 1, 2};
+                    else
+                        treeshape = (Box2D){0, 0, 1, 1};
+                    ZE::Visual::AddQuad(
+                        treeshape, spritebox,
+                        0, 0, MatrixTranslate(su.x, su.y, su.z),
+                        updatedsprite, _
+                    );
+                }
                 
+                if (chains[i] != updatedsprite.size()/4){
+                    printf("SOMETHINGS TERRIBLY WRONG");
+                    exit(-1);
+                }
 
-                ZE::Visual::AddQuad(
-                    treeshape, spritebox,
-                    0, 0, MatrixTranslate(su.x, su.y, su.z),
-                    updatedsprite, _
-                );
-
-                if (chaining == false){
-                    beginindex = su.index;
-                    chaining = true;
-                }
-                if ((su.index-1) < lastindex || i == (list.size()-1)){
-                    printf("updating sprites %d %d\n", (su.index - beginindex), (su.index - beginindex) * 4);
-                    dq.vb->UpdateMemory(updatedsprite.data(), (su.index - beginindex ) * 4, beginindex);
-                    updatedsprite = std::vector<Vertex>();
-                    chaining = false;
-                }
-                else{
-                    lastindex = su.index;
-                }
+                printf("sprite update round %lu, %d + %d\n", updatedsprite.size()/4, firstindexoffset, chainoffset);
+                dq.vb->UpdateMemory(updatedsprite.data(), updatedsprite.size(), (chainoffset + firstindexoffset)*4);
+                updatedsprite = std::vector<Vertex>();
+                chainoffset += chains[i];
+                firstindexoffset = list[chainoffset-1].index;
             }
         }
 
+        bool RemoveFruit(){
+            return true;
+        }
         
         struct state {
             uint64_t id;
@@ -533,8 +550,8 @@ int main( void ){
         void Update( std::vector<WindowEvent> events, std::vector<Trees::state>& treestates ){
             for (uint32_t fi = 0; fi < fellas.size(); ++fi ){
                 Fella& f = fellas[fi];
-                Trees::state closesttree = treestates[0];
 
+                Trees::state closesttree = treestates[0];
                 float closesttreedist = INFINITY;/*sqrt(
                     (f.pos.x - closesttree.pos.x) * (f.pos.x - closesttree.pos.x) +
                     (f.pos.x - closesttree.pos.z) * (f.pos.x - closesttree.pos.z)
@@ -566,7 +583,7 @@ int main( void ){
                 float hungerdesire =  
                     (x >= 90.0) ? 100. * f.brain.hunger :
                     (x >= 75.0) ? 50.0 * f.brain.hunger :
-                    (x >= 50.0) ? 10.0 * f.brain.hunger  :
+                    (x >= 10.0) ? 10.0 * f.brain.hunger  :
                                   0.0
                 ;
                 
@@ -589,17 +606,51 @@ int main( void ){
                 float needs[4] = {
                     restdesire, hungerdesire, thirstdesire, gottagodesire
                 };
+                uint32_t desireind[4] = {0, 1, 2, 3};
                 bool sorted = false;
                 while (!sorted){
                     sorted = true;
                     for (uint32_t i = 0; i < 3; ++i){
-                        if (needs[i] > needs[i+1]){
+                        if (needs[i] < needs[i+1]){
                             float t = needs[i];
                             needs[i] = needs[i+1];
                             needs[i+1] = t;
+
+                            float t2 = desireind[i];
+                            desireind[i] = desireind[i+1];
+                            desireind[i+1] = t;
+
                             sorted = false;
                         }
                     }
+                }
+                
+                // printf("{");
+                // for (uint32_t i = 0; i < 4; ++i){
+                //     printf("(%f, %d), ", needs[i], desireind[i]);
+                // }
+                // printf("}\n");
+
+                if (desireind[0] == 1){
+                    float
+                        xdist = f.position.x - closesttree.pos.x,
+                        zdist = f.position.z - closesttree.pos.z;
+
+                    if (xdist < 0)
+                        f.position.x -= std::max<float>(xdist, -0.01f) * (deltaT*100.0);
+                    else 
+                        f.position.x -= std::min<float>(xdist, 0.01f) * (deltaT*100.0);
+
+                    if (zdist < 0)
+                        f.position.z -= std::max<float>(zdist, -0.01f) * (deltaT*100.0);
+                    else 
+                        f.position.z -= std::min<float>(zdist, 0.01f) * (deltaT*100.0);
+
+                        
+                }
+                else {
+                    f.position.x += (GetRandom() - 500) / (100.f * 60.f);
+                    f.position.z += (GetRandom() - 500) / (100.f * 60.f);
                 }
 
                 float needs2[4] = {
@@ -609,11 +660,6 @@ int main( void ){
                     f.gottago / 100.f,
                 };
                 f.eb->UpdateBars(needs2);
-
-                {
-                    f.position.x += (GetRandom() - 500) / (100.f * 60.f);
-                    f.position.z += (GetRandom() - 500) / (100.f * 60.f);
-                }
                 mvps[f.trsid] = {MatrixTranslate(f.position.x, 0, f.position.z)};
             }
         }
