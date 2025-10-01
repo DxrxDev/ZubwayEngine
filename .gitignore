@@ -1,3 +1,5 @@
 out/int/*
 out/*.spirv
 out/*.out
+
+App/outtakes
