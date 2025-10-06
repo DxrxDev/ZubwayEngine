@@ -136,10 +136,10 @@ int main( void ){
             }
 
             if (treeid == treestates.size()){
-                treestates.push_back((state){treeid, age, 0, pos});
+                treestates.push_back((state){treeid, age, 0, 0, pos});
             }
             else {
-                treestates[treeid] = (state){treeid, age, 0, pos};
+                treestates[treeid] = (state){treeid, age, 0, 0, pos};
             }
 
             Vertex verts[4];
@@ -163,7 +163,7 @@ int main( void ){
             return nullptr;
         }
         void RemoveTree(uint64_t id){
-            treestates[id] = (state){id, 0, 0, {0, -50.0f, 0.0f}, Sprite::SEED};
+            treestates[id] = (state){id, 0, 0, 0, {0, -50.0f, 0.0f}, Sprite::SEED};
             if (trees.RemoveID( id )){
                 printf("tree with id wasnt active %lu, %lu\n", id, trees.GetNumActive());
                 return;
@@ -216,22 +216,23 @@ int main( void ){
                 if (s.age < 6.0){
                     continue;
                 }
-                s.fruitcycle += deltaT;
 
+                s.fruitcycle += deltaT;
                 if (s.fruitcycle > 10.0 && s.sprite == Sprite::TREE){
                     spriteupdates.push_back({
                         (uint32_t)s.id, Sprite::FLOWERING_TREE, s.pos.x, s.pos.y - 0.5f, s.pos.z
                     });  
                     s.sprite = Sprite::FLOWERING_TREE;
+                    s.fruit = 2;
                 }
                 if (s.fruitcycle > 20.0 && s.sprite == Sprite::FLOWERING_TREE){
-                    int32_t randomNum = (int32_t)GetRandom() % 10;
-                    if (!randomNum){
-                        printf("tree id:%lu can spawn a tree\n", s.id);
+                    int32_t numseeds = (int32_t)GetRandom() % 2;
+                    numseeds *= (int32_t)((float)s.fruit * 0.25f);
+                    for (uint32_t i = 0; i < numseeds; ++i){
                         newtreespos.push_back((Vector3){
-                            s.pos.x + (((float)GetRandom() - 500.f)/800.f),
+                            s.pos.x + (((float)GetRandom() - 500.f)/500.f),
                             -0.5f,
-                            s.pos.z + (((float)GetRandom() - 500.f)/800.f)
+                            s.pos.z + (((float)GetRandom() - 500.f)/500.f)
                         });
                     }
                     s.fruitcycle = 0;
@@ -243,13 +244,13 @@ int main( void ){
 
             }
 
-            SpriteUpdates(spriteupdates);
             for (uint32_t id: toremove){
                 RemoveTree( id );
             }
             for (Vector3 v : newtreespos){
                 AddTree( v );
             }
+            SpriteUpdates(spriteupdates);
 
             std::vector<state> draworder = treestates;
             std::sort(
@@ -296,14 +297,13 @@ int main( void ){
                 lastindex = su.index;
             }
 
-            printf("{");
-            for (uint32_t i: chains){
-                printf("%d, ", i);
-            }
-            printf("}\n");
+            // printf("{");
+            // for (uint32_t i: chains){
+            //     printf("%d, ", i);
+            // }
+            // printf("}\n");
 
             uint32_t chainoffset = 0;
-            uint32_t firstindexoffset = list[0].index;
             std::vector<Vertex> updatedsprite; std::vector<uint16_t> _;
             for (uint32_t i = 0; i < chains.size(); ++i){
                 for (uint32_t j = 0; j < chains[i]; ++j){
@@ -333,22 +333,37 @@ int main( void ){
                     exit(-1);
                 }
 
-                printf("sprite update round %lu, %d + %d\n", updatedsprite.size()/4, firstindexoffset, chainoffset);
-                dq.vb->UpdateMemory(updatedsprite.data(), updatedsprite.size(), (chainoffset + firstindexoffset)*4);
+                //printf("sprite update round %lu, %d + %d\n", updatedsprite.size()/4, firstindexoffset, chainoffset);
+                dq.vb->UpdateMemory(updatedsprite.data(), updatedsprite.size(), (list[chainoffset].index)*4);
                 updatedsprite = std::vector<Vertex>();
                 chainoffset += chains[i];
-                firstindexoffset = list[chainoffset-1].index;
             }
         }
 
-        bool RemoveFruit(){
-            return true;
+        uint32_t RemoveFruit( uint32_t id, uint32_t num = 1 ){
+            state& s = treestates[id];
+            if (s.sprite != Sprite::FLOWERING_TREE) return 1;
+            if (trees[id]){
+                if (s.fruit > 0){
+                    s.fruit -= num;
+                }
+                else {
+                    s.fruitcycle = 0.0;
+                    SpriteUpdates({
+                        (spriteupdate){id, Sprite::TREE, s.pos.x, s.pos.y, s.pos.z }
+                    });
+                    s.sprite = Sprite::TREE;
+                }
+            }
+            
+            return 0;
         }
         
         struct state {
             uint64_t id;
             float age;
             float fruitcycle;
+            uint8_t fruit;
             Vector3 pos;
 
             Sprite sprite;
@@ -362,11 +377,10 @@ int main( void ){
         std::vector<state> treestates;
 
         ZE::Visual::DrawQueue dq;
-        ZE::DataStructures::IDManager<1024> *idman;
         MVP *mvps;
     };
     Trees trees(mvps.data());
-    uint32_t numtrees = 15;
+    uint32_t numtrees = 2;
     for (uint32_t i = 0; i < numtrees; ++i){
         trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 6.0);
     }
@@ -547,7 +561,8 @@ int main( void ){
             mvps[id] = {MatrixIdentity()};
         }
     
-        void Update( std::vector<WindowEvent> events, std::vector<Trees::state>& treestates ){
+        void Update( std::vector<WindowEvent> events, Trees& trees ){
+            std::vector<Trees::state>& treestates = trees.treestates;
             for (uint32_t fi = 0; fi < fellas.size(); ++fi ){
                 Fella& f = fellas[fi];
 
@@ -634,32 +649,38 @@ int main( void ){
                 if (desireind[0] == 1){
                     float
                         xdist = f.position.x - closesttree.pos.x,
-                        zdist = f.position.z - closesttree.pos.z;
+                        zdist = f.position.z - closesttree.pos.z,
+                        vdist = sqrt((xdist*xdist) + (zdist * zdist));
 
-                    if (xdist < 0)
-                        f.position.x -= std::max<float>(xdist, -0.01f) * (deltaT*100.0);
-                    else 
-                        f.position.x -= std::min<float>(xdist, 0.01f) * (deltaT*100.0);
-
-                    if (zdist < 0)
-                        f.position.z -= std::max<float>(zdist, -0.01f) * (deltaT*100.0);
-                    else 
-                        f.position.z -= std::min<float>(zdist, 0.01f) * (deltaT*100.0);
-
+                    if (vdist < 0.02){
+                        f.position.x = closesttree.pos.x;
+                        f.position.z = closesttree.pos.z;
                         
+                        if (closesttree.sprite == Trees::Sprite::FLOWERING_TREE){
+                            trees.RemoveFruit(closesttree.id);
+                            f.hungry = 0;
+                        }
+                    }
+                    else {
+                        xdist = xdist * deltaT / (vdist);
+                        zdist = zdist * deltaT / (vdist);
+                        f.position -= {xdist, 0.0, zdist};
+                    }
+
+                       
                 }
                 else {
                     f.position.x += (GetRandom() - 500) / (100.f * 60.f);
                     f.position.z += (GetRandom() - 500) / (100.f * 60.f);
                 }
 
-                float needs2[4] = {
+                float uivals[4] = {
                     f.fatigue / 100.f,
                     f.hungry / 100.f,
                     f.thirsty / 100.f,
                     f.gottago / 100.f,
                 };
-                f.eb->UpdateBars(needs2);
+                f.eb->UpdateBars(uivals);
                 mvps[f.trsid] = {MatrixTranslate(f.position.x, 0, f.position.z)};
             }
         }
@@ -757,7 +778,7 @@ int main( void ){
            
         
         trees.Update();
-        theFirst.Update( events, trees.treestates );
+        theFirst.Update( events, trees );
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
            
         //////////////////////////////////////
