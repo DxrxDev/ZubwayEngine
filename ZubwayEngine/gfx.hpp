@@ -119,6 +119,8 @@ namespace ZE {
             uint32_t trs,
             std::vector<Vertex>& verts, std::vector<uint16_t>& inds
         );
+
+        uint32_t AddSqPyramid( Vector3 pos, Vector3 scl, Box2D tex, uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds);
     };
     namespace Camera {
         class Camera{

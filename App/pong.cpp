@@ -75,11 +75,15 @@ int main( void ){
 
     class Map{
         public:
-            Map(uint32_t trsid, MVP *mvps) : trans(mvps){
+            Map( ZE::DataStructures::IDManager<1024>& _idman, MVP *mvps ) : idman(_idman), trans(mvps){
                 dq = {
                     std::vector<Vertex>(),
                     std::vector<uint16_t>()
                 };
+
+                groundID = 0;
+                bonfireID = 0;//idman.GenerateID();
+
         
                 ZE::DataStructures::Grid bgGrid( 25, 25, 1.0f );
                 for (uint32_t y = 0; y < bgGrid.GetSize().y; ++y){
@@ -87,21 +91,36 @@ int main( void ){
                         ZE::Visual::AddQuad(
                             bgGrid.ToBox2D(x, y),
                             ZE::Visual::TextureMapToBox2D({8, 8}, 0, 2),
-                            0, trsid, MatrixRotateX( PI/2.0f ),
+                            0, groundID, MatrixRotateX( PI/2.0f ),
                             dq.verts, dq.inds
                         );
                     }
                 }
+                // ZE::Visual::AddQuad(
+                //     {0, -0.15, 1, 0.3},
+                //     ZE::Visual::TextureMapToBox2D({8, 8}, 2, 1),
+                //     0, bonfireID, dq.verts, dq.inds
+                // );
+                ZE::Visual::AddSqPyramid(
+                    {0, 0,0 }, {1, 1.0, 1},
+                    ZE::Visual::TextureMapToBox2D({8, 8}, 2, 1),
+                    bonfireID, dq.verts, dq.inds
+                );
+
                 ZE::Visual::CreateDrawQueue(
                     mainWnd, dq,
                     0, 0
                 );
             }
         
+            ZE::DataStructures::IDManager<1024>& idman;
+
+            uint32_t groundID;
+            uint32_t bonfireID;
             MVP *trans;
             ZE::Visual::DrawQueue dq;
     };
-    Map map(0, mvps.data());
+    Map map(transformIDs, mvps.data());
 
     // struct Fruit{
     //     float ripeness; // 0 = seeds, 1.0 = flower, 2.0 = bulb, 3.0 = hard = 4.0 ripe, 5 = mushy, <5 = ew
@@ -223,7 +242,7 @@ int main( void ){
                         (uint32_t)s.id, Sprite::FLOWERING_TREE, s.pos.x, s.pos.y - 0.5f, s.pos.z
                     });  
                     s.sprite = Sprite::FLOWERING_TREE;
-                    s.fruit = 2;
+                    s.fruit = 4;
                 }
                 if (s.fruitcycle > 20.0 && s.sprite == Sprite::FLOWERING_TREE){
                     int32_t numseeds = (int32_t)GetRandom() % 2;
@@ -273,12 +292,12 @@ int main( void ){
             }
             dq.ib->UpdateMemory(inds.data(), inds.size(), 0);
 
-            if (newtreespos.size() || toremove.size())
-                printf(
-                    "trees created: %lu\n"
-                    "trees removed: %lu\n",
-                    newtreespos.size(), toremove.size()
-                );
+            // if (newtreespos.size() || toremove.size())
+            //     printf(
+            //         "trees created: %lu\n"
+            //         "trees removed: %lu\n",
+            //         newtreespos.size(), toremove.size()
+            //     );
         }
 
         void SpriteUpdates(std::vector<spriteupdate> list){
@@ -380,7 +399,7 @@ int main( void ){
         MVP *mvps;
     };
     Trees trees(mvps.data());
-    uint32_t numtrees = 2;
+    uint32_t numtrees = 15;
     for (uint32_t i = 0; i < numtrees; ++i){
         trees.AddTree((Vector3){(((float)GetRandom()/50.0f)) - 10.0f, -0.5, ((float)GetRandom()/50.0f) - 10.0f}, 6.0);
     }
@@ -701,9 +720,9 @@ int main( void ){
         true, new ZE::UI::Component[30], 30
     };
     FellaInfoUI f0 = FellaInfoUI(&ui, {0}, {0, 0});
-    FellaInfoUI f1 = FellaInfoUI(&ui, {0}, {0, 0});
-    FellaInfoUI f2 = FellaInfoUI(&ui, {0}, {0, 0});
-    FellaInfoUI f3 = FellaInfoUI(&ui, {0}, {0, 0});
+    FellaInfoUI f1 = FellaInfoUI(&ui, {0}, {0, 50});
+    FellaInfoUI f2 = FellaInfoUI(&ui, {0}, {0, 100});
+    FellaInfoUI f3 = FellaInfoUI(&ui, {0}, {0, 150});
 
     Tribe theFirst(transformIDs, mvps.data());
 

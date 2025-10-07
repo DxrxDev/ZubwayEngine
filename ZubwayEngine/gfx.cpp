@@ -1,4 +1,7 @@
 #include "gfx.hpp"
+#include "zubwayengine.hpp"
+#include <cstdint>
+#include <vector>
 
 
 Box2D ZE::Visual::TextureMapToBox2D(TextureMap tm, uint32_t x, uint32_t y){
@@ -271,6 +274,71 @@ namespace ZE {
             inds.push_back( offset + 0 );
             inds.push_back( offset + 1 );
             inds.push_back( offset + 2 );
+        }
+
+        uint32_t AddSqPyramid( Vector3 pos, Vector3 scl, Box2D tex, uint32_t trs, std::vector<Vertex>& verts, std::vector<uint16_t>& inds ){
+            float hw;
+            float h;
+            float hd;
+            uint32_t io = verts.size();
+
+            if (scl.x != 0 || scl.y != 0 || scl.z != 0){
+                hw = scl.x/2.0f;
+                h =  scl.y;
+                hd = scl.x/2.0f;
+            }
+            else {
+                hw = 0.5f;
+                h  = 1.0f;
+                hd = 0.5f;
+            }
+            
+            Vector2 texturecoords[5] = {
+                {tex.x,  tex.y}, //tl
+                {tex.x + tex.w,  tex.y}, //tr
+                {tex.x,  tex.y + tex.h}, //bl
+                {tex.x + tex.w,  tex.y + tex.h}, //br
+                { tex.x + (tex.w/2.0f),  tex.y + (tex.h/2.0f) } //centre
+            };
+
+            Vector3 v1 = (Vector3){pos.x - hw, 0, pos.z - hd}; // backleft
+            Vector3 v2 = (Vector3){pos.x + hw, 0, pos.z - hd}; // backright
+            Vector3 v3 = (Vector3){pos.x - hw, 0, pos.z + hd}; // frontleft
+            Vector3 v4 = (Vector3){pos.x + hw, 0, pos.z + hd}; // frontright
+            Vector3 v5 = (Vector3){pos.x, -h, pos.z};           // apex
+
+            Vertex v[5] = {
+                {v1, texturecoords[0], trs}, // backleft
+                {v2, texturecoords[1], trs}, // backright
+                {v3, texturecoords[2], trs}, // frontleft
+                {v4, texturecoords[3], trs}, // frontright
+                {v5, texturecoords[4], trs}, // apex
+            };
+
+            uint16_t i[3*4] = {
+                0, 1, 4,
+                2, 4, 3,
+                1, 3, 4,
+                0, 4, 2,  
+            };
+            // i[3] = io+;
+            // i[4] = io+;
+            // i[5] = io+;
+            // i[6] = io+;
+            // i[7] = io+;
+            // i[8] = io+;
+            // i[9] = io+;
+            // i[10] = io+;
+            // i[11] = io+;
+
+            for (uint32_t counter = 0; counter < 5; ++counter){
+                verts.push_back(v[counter]);
+            }
+            for (uint32_t counter = 0; counter < (4*3); ++counter){
+                inds.push_back(io + i[counter]);
+            }
+            
+            return 0;
         }
     };
 
