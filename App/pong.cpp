@@ -97,7 +97,7 @@ int main( void ){
                     }
                 }
                 ZE::Visual::AddSqPyramid(
-                    {0, 0,0 }, {.1, 2.0, .1},
+                    {0, 0,0 }, {0.5, 0.5, 0.5},
                     ZE::Visual::TextureMapToBox2D({8, 8}, 2, 1),
                     bonfireID, dq.verts, dq.inds
                 );
@@ -815,16 +815,25 @@ int main( void ){
         float x = mp.x / SCREEN_WIDTH * 2.0;
         float y = mp.y / SCREEN_HEIGHT * 2.0;
 
-        Vector4 eye = (Vector4){x, y, 1, 1} * MatrixInvert(cam.GetProj()); 
-        Vector4 gee = eye * MatrixInvert(cam.GetView());
-        gee = gee * 0.001;
+        Vector4 ray = (Vector4){x, y, 1, 1} * MatrixInvert(cam.GetProj()) * MatrixInvert(cam.GetView()) * 0.001;
         Vector4 travel = {cam.GetPos().x, cam.GetPos().y, cam.GetPos().z, 1.0};
         while (travel.y < 0.00000001){
-            travel += gee;
+            travel += ray;
         }
         mvps[map.bonfireID].model = MatrixTranslate(travel.x, travel.y, travel.z);
 
-        printf("eye %f %f %f\n", travel.x, travel.y, travel.z);
+        float randomX = (GetRandom()-500.0f)/3500.0f;
+        float randomY = (GetRandom()-500.0f)/3500.0f;
+
+        mvps[map.bonfireID].model = mvps[map.bonfireID].model * 
+            (Matrix){
+                1, randomX, 0, 0,
+                0, 1, 0, 0,
+                0, randomY, 1, 0,
+                0, 0, 0, 1,
+            }
+        ;
+
 
         trees.Update();
         theFirst.Update( events, trees );
