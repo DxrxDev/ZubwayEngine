@@ -8,6 +8,8 @@
 #include "thing.hpp"
 #include "gfx.hpp"
 
+#define dodebug printf("DEBUG LAST LINE CHECKPOINT = %d\n", __LINE__)
+
 #include "cute_png.h"
 
 #endif

@@ -126,6 +126,7 @@ namespace ZE {
         class Camera{
         public:
             void SetPos(Vector3 pos);
+            Vector3 GetPos(void);
         protected:
             Camera();
 
@@ -252,7 +253,10 @@ namespace ZE {
             Vector2 offset = {0, 0};
             uint32_t dataoffset = 0;
 
+            //printf("im krilling \n");
+
             if (pathsize > 0){
+                //printf("im guh \n");
                 for (uint32_t i = 0; i < pathsize; ++i){
                     offset += {
                         c.style.box.x,
@@ -266,9 +270,11 @@ namespace ZE {
             else {
 
             }
-
+            //printf("im krilling \n");
             data = GetVerts( c, offset );
+            //printf("im krilling \n");
             uib->UpdateMemory( data.data(), data.size(), dataoffset );
+            //printf("im krilling \n");
         }
         void Redraw( ){
             Redraw( nullptr, 0 );

@@ -321,15 +321,6 @@ namespace ZE {
                 1, 3, 4,
                 0, 4, 2,  
             };
-            // i[3] = io+;
-            // i[4] = io+;
-            // i[5] = io+;
-            // i[6] = io+;
-            // i[7] = io+;
-            // i[8] = io+;
-            // i[9] = io+;
-            // i[10] = io+;
-            // i[11] = io+;
 
             for (uint32_t counter = 0; counter < 5; ++counter){
                 verts.push_back(v[counter]);
@@ -346,6 +337,9 @@ namespace ZE {
     
             void Camera::SetPos(Vector3 pos){
                 this->pos = pos;
+            }
+            Vector3 Camera::GetPos(void){
+                return this->pos;
             }
     
             Camera::Camera(){

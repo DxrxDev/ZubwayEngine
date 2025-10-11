@@ -82,7 +82,7 @@ int main( void ){
                 };
 
                 groundID = 0;
-                bonfireID = 0;//idman.GenerateID();
+                bonfireID = idman.GenerateID();
 
         
                 ZE::DataStructures::Grid bgGrid( 25, 25, 1.0f );
@@ -96,13 +96,8 @@ int main( void ){
                         );
                     }
                 }
-                // ZE::Visual::AddQuad(
-                //     {0, -0.15, 1, 0.3},
-                //     ZE::Visual::TextureMapToBox2D({8, 8}, 2, 1),
-                //     0, bonfireID, dq.verts, dq.inds
-                // );
                 ZE::Visual::AddSqPyramid(
-                    {0, 0,0 }, {1, 1.0, 1},
+                    {0, 0,0 }, {.1, 2.0, .1},
                     ZE::Visual::TextureMapToBox2D({8, 8}, 2, 1),
                     bonfireID, dq.verts, dq.inds
                 );
@@ -724,6 +719,8 @@ int main( void ){
     FellaInfoUI f2 = FellaInfoUI(&ui, {0}, {0, 100});
     FellaInfoUI f3 = FellaInfoUI(&ui, {0}, {0, 150});
 
+    dodebug;
+
     Tribe theFirst(transformIDs, mvps.data());
 
     theFirst.SpawnFella("philla",  &f0);
@@ -731,11 +728,21 @@ int main( void ){
     theFirst.SpawnFella("cleet",   &f2);
     theFirst.SpawnFella("fueller", &f3);
 
+    dodebug;
+
     ui.Redraw();
+
+    dodebug;
+
     uint32_t path[] = {
-        0, 0, 0
+        0
     };
+
+    dodebug;
+
     ui.Redraw( path, 1 );
+
+    dodebug;
 
     printf("number of children %d\n", ui.GetSizeOfTree(ui.root));
 
@@ -749,20 +756,24 @@ int main( void ){
     UniformBuffer ub1( &wnd, 1024 );
     ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
 
+    dodebug;
+
     bool running = true;
     std::chrono::time_point<std::chrono::high_resolution_clock> t1, t2;
     float desiredMilliCount = 16.667;
     millisecondsSinceLastFrame = 0;
 
+    dodebug;
+
     std::cout << "Entering main loop !!!" << std::endl;
 
     float cposx = 0, cposy = 0;
-
+    Vector2 mp = {0, 0};
     while (running){ t1 = std::chrono::high_resolution_clock::now();
         std::vector<WindowEvent> events = wnd.GetEvents();
         running = wnd.IsRunning();
            
-           
+        
         ////////////////////////////
         /* =====(LOCIG STUFF)=====*/
         ////////////////////////////
@@ -779,6 +790,12 @@ int main( void ){
                     }
                 }
             }
+            else if (e.type == WindowEventType::MouseMove){
+                mp = {
+                    e.mm.x - (SCREEN_WIDTH/2.0f),
+                    e.mm.y -(SCREEN_HEIGHT/2.0f)
+                };
+            }
         }
                       
         if (wnd.IsPressed('w')){
@@ -794,8 +811,21 @@ int main( void ){
             cposx += 0.1;
         }
         cam.SetPos((Vector3){cposx, -5.0, cposy});
-           
         
+        float x = mp.x / SCREEN_WIDTH * 2.0;
+        float y = mp.y / SCREEN_HEIGHT * 2.0;
+
+        Vector4 eye = (Vector4){x, y, 1, 1} * MatrixInvert(cam.GetProj()); 
+        Vector4 gee = eye * MatrixInvert(cam.GetView());
+        gee = gee * 0.001;
+        Vector4 travel = {cam.GetPos().x, cam.GetPos().y, cam.GetPos().z, 1.0};
+        while (travel.y < 0.00000001){
+            travel += gee;
+        }
+        mvps[map.bonfireID].model = MatrixTranslate(travel.x, travel.y, travel.z);
+
+        printf("eye %f %f %f\n", travel.x, travel.y, travel.z);
+
         trees.Update();
         theFirst.Update( events, trees );
         ub1.UpdateMVP( mvps.data(), mvps.size(), 0 );
